@@ -45,14 +45,33 @@ jobs:
       - name: Verify no hardcoded secrets
         run: |
           echo "Scanning for hardcoded secrets..."
+          
+          # Check for OpenAI-style API keys (sk-...)
           if grep -r "sk-[a-zA-Z0-9]" src/ 2>/dev/null; then
-            echo "ERROR: Potential API key found!"
+            echo "ERROR: Potential hardcoded API key found!"
             exit 1
           fi
-          if grep -r "api_key.*=.*['\"][^'\"]*['\"]" src/ 2>/dev/null | grep -v "api_key.*=.*['\"]['\"]"; then
+          
+          # Check for hardcoded API keys, but exclude safe patterns
+          # Safe patterns: os.getenv(), os.environ.get(), config.get()
+          if grep -r "api_key.*=.*['\"][^'\"]\+" src/ 2>/dev/null | \
+             grep -v "os\.getenv" | \
+             grep -v "os\.environ" | \
+             grep -v "config\.get" | \
+             grep -v "\.get(" | \
+             grep -v "api_key.*=.*['\"]['\"]" | \
+             grep -q .; then
             echo "ERROR: Hardcoded API key found!"
+            echo "Found:"
+            grep -r "api_key.*=.*['\"][^'\"]\+" src/ | \
+              grep -v "os\.getenv" | \
+              grep -v "os\.environ" | \
+              grep -v "config\.get" | \
+              grep -v "\.get(" | \
+              grep -v "api_key.*=.*['\"]['\"]"
             exit 1
           fi
+          
           echo "✓ No hardcoded secrets found"
 
   build-compiled:
