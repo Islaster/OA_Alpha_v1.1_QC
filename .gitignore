@@ -1,0 +1,125 @@
+# OA - Orientation Automator
+# .gitignore for security and cleanliness
+
+# ============================================================================
+# SECURITY - NEVER COMMIT THESE
+# ============================================================================
+
+# Environment variables with secrets
+.env
+.env.local
+.env.production
+.env.development
+
+# Encryption keys
+.oa_encryption_key
+*.key
+*.pem
+*.crt
+
+# API keys and credentials
+*_api_key.txt
+*_credentials.json
+*_token.txt
+
+# ============================================================================
+# USER DATA
+# ============================================================================
+
+# Learned rotations (may contain sensitive project names)
+rotation_presets.json
+orientation_learning.json
+ground_patterns.json
+
+# Logs (may contain sensitive paths or errors)
+*.log
+*.txt
+processing_log.txt
+debug_log.txt
+
+# User-specific paths
+blender_path.txt
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ============================================================================
+# IDE / EDITOR
+# ============================================================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Cursor
+.cursor/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================================
+# OS
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ============================================================================
+# TESTING & DEVELOPMENT
+# ============================================================================
+
+# Test outputs
+test_output/
+*.test
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# ============================================================================
+# 3D FILES (optionally ignore large files)
+# ============================================================================
+
+# Uncomment to ignore large 3D files:
+# *.blend
+# *.fbx
+# *.obj
+# *.ply
+# *.gltf
+# *.glb
+

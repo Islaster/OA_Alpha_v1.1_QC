@@ -1,0 +1,43 @@
+{
+  "rotation": {
+    "common_presets": [-90, -45, 0, 45, 90, 180],
+    "adaptive_steps": [15, 5, 1, 0.5, 0.1],
+    "optimization_method": "L-BFGS-B",
+    "optimization_tolerance": 0.01,
+    "use_pca_initial_guess": true
+  },
+  "ground_detection": {
+    "use_learned": true,
+    "use_physics": true,
+    "use_ai": false,
+    "ai_provider": "openai",
+    "ai_api_key": "",
+    "confidence_threshold": 0.8,
+    "learning_file": "orientation_learning.json",
+    "methods": [
+      "largest_face",
+      "lowest_face",
+      "normal_alignment",
+      "center_of_mass"
+    ]
+  },
+  "learning": {
+    "enable_learning": true,
+    "min_samples_for_pattern": 3
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_file": "processing_log.txt"
+  },
+  "debug": {
+    "enabled": false,
+    "log_file": "debug_log.txt",
+    "save_intermediate": false,
+    "verbose": false
+  },
+  "paths": {
+    "presets_file": "rotation_presets.json",
+    "ground_patterns_file": "ground_patterns.json"
+  }
+}
+
