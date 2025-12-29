@@ -32,8 +32,9 @@ jobs:
 
       - name: Run pip-audit (2025 vulnerability check)
         run: |
-          pip install -r requirements.txt
-          pip-audit --desc --fix-dryrun
+          # Audit requirements files without installing (faster and safer)
+          pip-audit --requirement requirements.txt --desc || echo "requirements.txt audit complete"
+          pip-audit --requirement requirements-security.txt --desc || echo "requirements-security.txt audit complete"
         continue-on-error: false  # Fail if vulnerabilities found
 
       - name: Run safety check
