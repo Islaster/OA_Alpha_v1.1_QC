@@ -1,0 +1,262 @@
+# OA - Orientation Automator
+# PyProject configuration for PyApp packaging
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oa-orientation-automator"
+version = "1.1.0"
+description = "Automated 3D model bounding box optimization with rotation optimization"
+authors = [
+    {name = "OA Development Team"}
+]
+readme = "README_REFACTORED.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.10"
+keywords = ["3d", "blender", "optimization", "bounding-box", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
+]
+
+dependencies = [
+    "PySide6>=6.10.0",
+    "python-dotenv>=1.0.0",
+    "cryptography>=41.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller>=6.0.0",
+    "nuitka>=2.0.0",
+    "ordered-set>=4.1.0",
+    "zstandard>=0.22.0",
+    "pip-audit>=2.6.0",
+    "safety>=2.3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/oa-orientation-automator"
+Documentation = "https://github.com/yourusername/oa-orientation-automator/blob/main/README.md"
+Repository = "https://github.com/yourusername/oa-orientation-automator"
+
+[project.scripts]
+oa-gui = "gui_new:main"
+oa-cli = "main_processor:main"
+
+# ============================================================================
+# PyApp Configuration - Standalone Binary Packaging
+# ============================================================================
+
+[tool.pyapp]
+# Application metadata
+name = "OA-OrientationAutomator"
+version = "1.1.0"
+description = "Orientation Automator - 3D Model Bounding Box Optimizer"
+
+# Entry point (module:function)
+# For GUI application
+entry-point = "gui_new:main"
+
+# Alternative CLI entry point (comment/uncomment as needed)
+# entry-point = "main_processor:main"
+
+# Python configuration
+[tool.pyapp.python]
+version = "3.12"
+# Use the latest stable 3.12.x
+patch-version = "latest"
+
+# Distribution configuration
+[tool.pyapp.distribution]
+# Use obfuscated source
+source = "dist/obfuscated"
+# Include all dependencies
+include-dependencies = true
+# Bundle everything into single file
+standalone = true
+
+# Application features
+[tool.pyapp.features]
+# This is a GUI application
+gui = true
+# Enable console for debugging (set to false for production)
+console = false
+# Include pip for runtime package installation
+include-pip = false
+
+# Resource bundling
+[tool.pyapp.resources]
+# Include configuration templates
+include = [
+    "config.json",
+    "env.example",
+    "requirements.txt",
+    "requirements-security.txt",
+    "*.md",
+    "BUILD_INFO.txt",
+]
+
+# Exclude unnecessary files
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/.git",
+    "**/.gitignore",
+    "**/tests",
+    "**/test_*.py",
+    "**/*_test.py",
+]
+
+# Platform-specific settings
+[tool.pyapp.windows]
+# Windows-specific options
+icon = "assets/icon.ico"  # Optional: add your icon
+console = false
+# Request admin privileges if needed
+require-admin = false
+
+[tool.pyapp.macos]
+# macOS-specific options
+icon = "assets/icon.icns"  # Optional: add your icon
+bundle-id = "com.oa.orientationautomator"
+# Create .app bundle
+create-app-bundle = true
+
+[tool.pyapp.linux]
+# Linux-specific options
+icon = "assets/icon.png"  # Optional: add your icon
+# Create desktop entry
+create-desktop-entry = true
+categories = ["Graphics", "3DGraphics", "Utility"]
+
+# Environment variables (for runtime)
+[tool.pyapp.environment]
+# Set default environment variables
+OA_DEBUG = "false"
+OA_LOG_LEVEL = "INFO"
+
+# Security settings
+[tool.pyapp.security]
+# Use obfuscated code (PyArmor)
+obfuscated = true
+# Verify integrity
+verify-integrity = true
+
+# ============================================================================
+# Nuitka Configuration
+# ============================================================================
+
+[tool.nuitka]
+# Compilation settings
+standalone = true
+onefile = true
+# Enable PySide6 plugin
+enable-plugins = ["pyside6"]
+# Include all source packages
+include-package = ["src"]
+# Include data files
+include-data-files = [
+    "config.json=config.json",
+    "env.example=env.example",
+]
+# Exclude unnecessary modules
+noinclude-pytest-mode = "nofollow"
+noinclude-setuptools-mode = "nofollow"
+# Output directory
+output-dir = "dist"
+
+# Platform-specific settings
+[tool.nuitka.windows]
+windows-disable-console = true
+windows-icon-from-ico = "assets/icon.ico"
+
+[tool.nuitka.macos]
+macos-create-app-bundle = true
+macos-app-icon = "assets/icon.icns"
+
+[tool.nuitka.linux]
+linux-icon = "assets/icon.png"
+
+# ============================================================================
+# PyInstaller Configuration (Fallback)
+# ============================================================================
+
+[tool.pyinstaller]
+# Entry point
+entry-point = "gui_new.py"
+# Application name
+name = "OA-OrientationAutomator"
+# One-file mode
+onefile = true
+# Windowed (no console)
+windowed = true
+# Icon
+icon = "assets/icon.ico"
+
+# Hidden imports
+hidden-imports = [
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
+    "cryptography",
+    "cryptography.fernet",
+    "dotenv",
+]
+
+# Data files to include
+datas = [
+    "config.json:.",
+    "env.example:.",
+    "src:src",
+]
+
+# Exclude unnecessary modules
+excludes = [
+    "tkinter",
+    "matplotlib",
+    "numpy",
+    "scipy",
+]
+
+# ============================================================================
+# Development Tools
+# ============================================================================
+
+[tool.pip-audit]
+# Vulnerability scanning
+description = true
+fix = false
+strict = true
+
+[tool.safety]
+# Dependency security checks
+policy-file = ".safety-policy.yml"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+

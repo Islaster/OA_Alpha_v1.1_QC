@@ -1,0 +1,54 @@
+# Safety Policy - Dependency Security Scanning
+# https://docs.safetycli.com/
+
+security:
+  # Minimum CVSS score to trigger alert (0-10)
+  # 7+ = High/Critical vulnerabilities
+  ignore-cvss-severity-below: 7.0
+  
+  # Fail on vulnerabilities with unknown severity
+  ignore-cvss-unknown-severity: false
+  
+  # Continue build even if vulnerabilities found
+  # Set to false for production (fail fast)
+  continue-on-vulnerability-error: false
+  
+  # Ignore specific vulnerability IDs (use sparingly)
+  ignore-vulnerabilities:
+    # Example: ignore specific CVE if you've verified it doesn't affect your use case
+    # - 51668  # PyYAML arbitrary code execution (if not using untrusted input)
+    
+  # Ignore specific packages (use sparingly)
+  ignore-packages:
+    # Example: ignore development-only packages
+    # - setuptools
+    
+# Alert configuration
+alert:
+  # Email notifications (optional)
+  # - email: security@yourcompany.com
+  
+  # Slack notifications (optional)
+  # - slack: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+
+# Project metadata
+project:
+  name: "OA - Orientation Automator"
+  description: "3D Model Bounding Box Optimization"
+
+# Dependency sources to scan
+sources:
+  - requirements.txt
+  - requirements-security.txt
+
+# Scanning options
+scan:
+  # Include development dependencies
+  include-dev: true
+  
+  # Deep scan (check transitive dependencies)
+  deep: true
+  
+  # Output format
+  output-format: json
+
