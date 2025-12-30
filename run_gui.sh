@@ -17,5 +17,5 @@ fi
 
 # Activate virtual environment and run GUI
 source "$VENV_DIR/bin/activate"
-python "$SCRIPT_DIR/gui.py"
+python "$SCRIPT_DIR/gui_new.py"
 
