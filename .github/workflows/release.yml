@@ -124,6 +124,7 @@ jobs:
           if [ -f "requirements-security.txt" ]; then
             uv pip install --system -r requirements-security.txt
           fi
+          uv pip install --system imageio
         shell: bash
 
       - name: Install Nuitka
