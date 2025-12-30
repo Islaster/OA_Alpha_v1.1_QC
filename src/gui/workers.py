@@ -41,9 +41,35 @@ class ProcessWorker(threading.Thread):
         from src.security.error_handler import sanitize_log_message
         
         try:
+            # Find the script file (handles Nuitka data file placement)
+            from src.utils.paths import find_data_file
+            
+            script_path = find_data_file("bounding_box_minimizer.py")
+            
+            # Fallback to script_dir if not found via find_data_file
+            if not script_path or not os.path.exists(script_path):
+                fallback_path = os.path.join(self.script_dir, "bounding_box_minimizer.py")
+                if os.path.exists(fallback_path):
+                    script_path = fallback_path
+                else:
+                    # Last resort: check current working directory
+                    cwd_path = os.path.join(os.getcwd(), "bounding_box_minimizer.py")
+                    if os.path.exists(cwd_path):
+                        script_path = cwd_path
+            
+            # If still not found, provide helpful error
+            if not script_path or not os.path.exists(script_path):
+                error_msg = (
+                    f"Could not find bounding_box_minimizer.py. "
+                    f"Searched in: {self.script_dir}, {os.getcwd()}, and executable directory. "
+                    f"Please ensure the file is included in the build."
+                )
+                self.signals.finished.emit(False, error_msg)
+                return
+            
             # Validate script path
             script_path = validate_file_path(
-                os.path.join(self.script_dir, "bounding_box_minimizer.py"),
+                script_path,
                 purpose="script",
                 must_exist=True
             )
