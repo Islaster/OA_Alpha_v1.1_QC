@@ -201,6 +201,8 @@ jobs:
               --include-package=platformdirs \
               --include-data-files=config.json=config.json \
               --include-data-files=env.example=env.example \
+              --include-data-files=bounding_box_minimizer.py=bounding_box_minimizer.py \
+              --include-data-files=main_processor.py=main_processor.py \
               --noinclude-pytest-mode=nofollow \
               --noinclude-setuptools-mode=nofollow \
               --assume-yes-for-downloads \
@@ -219,6 +221,8 @@ jobs:
               --include-package=platformdirs \
               --include-data-files=config.json=config.json \
               --include-data-files=env.example=env.example \
+              --include-data-files=bounding_box_minimizer.py=bounding_box_minimizer.py \
+              --include-data-files=main_processor.py=main_processor.py \
               --noinclude-pytest-mode=nofollow \
               --noinclude-setuptools-mode=nofollow \
               --assume-yes-for-downloads \
