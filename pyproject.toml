@@ -184,6 +184,7 @@ windows-icon-from-ico = "assets/icon.ico"
 [tool.nuitka.macos]
 macos-create-app-bundle = true
 macos-app-icon = "assets/icon.icns"
+macos-app-name = "OA-OrientationAutomator"
 
 [tool.nuitka.linux]
 linux-icon = "assets/icon.png"
