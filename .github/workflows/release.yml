@@ -135,7 +135,7 @@ jobs:
 
       - name: Install Nuitka
         run: |
-          pip install nuitka ordered-set zstandard
+          pip install nuitka ordered-set zstandard imageio
         shell: bash
 
       - name: Install Platform-Specific Build Tools
