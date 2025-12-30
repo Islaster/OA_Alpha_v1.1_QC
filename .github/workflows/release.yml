@@ -226,6 +226,7 @@ jobs:
         shell: bash
 
       - name: Verify compilation
+        id: verify-binary
         run: |
           echo "Verifying compiled binary..."
           ls -lh dist/
@@ -235,12 +236,19 @@ jobs:
             BINARY_PATH="dist/${{ matrix.binary_name }}"
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
             # Nuitka with --onefile creates .bin file, not .app bundle
+            # Check multiple possible locations/names
             if [ -f "dist/${{ matrix.binary_name }}.bin" ]; then
               BINARY_PATH="dist/${{ matrix.binary_name }}.bin"
             elif [ -f "dist/${{ matrix.binary_name }}" ]; then
               BINARY_PATH="dist/${{ matrix.binary_name }}"
+            elif [ -f "dist/${{ matrix.binary_name }}.dist/${{ matrix.binary_name }}" ]; then
+              BINARY_PATH="dist/${{ matrix.binary_name }}.dist/${{ matrix.binary_name }}"
             else
-              BINARY_PATH="dist/${{ matrix.binary_name }}.bin"
+              # Try to find any binary in dist/
+              BINARY_PATH=$(find dist -type f -name "${{ matrix.binary_name }}*" -perm +111 2>/dev/null | head -1)
+              if [ -z "$BINARY_PATH" ]; then
+                BINARY_PATH="dist/${{ matrix.binary_name }}.bin"
+              fi
             fi
           else
             BINARY_PATH="dist/${{ matrix.binary_name }}"
@@ -249,7 +257,6 @@ jobs:
           if [ -e "$BINARY_PATH" ]; then
             echo "✓ Binary created successfully: $BINARY_PATH"
             ls -lh "$BINARY_PATH"
-            
             # Note: With --onefile, Nuitka creates a .bin file, not an .app bundle
             # Icon is embedded via --macos-app-icon flag during compilation
             if [ "${{ matrix.os }}" == "macos-latest" ] && [ -f "$BINARY_PATH" ]; then
@@ -257,8 +264,12 @@ jobs:
               echo "ℹ️ Icon should be embedded via --macos-app-icon flag (set during compilation)"
               echo "ℹ️ To set icon manually after download, use: fileicon set <binary> <icon.icns>"
             fi
+            echo "binary_path=$BINARY_PATH" >> $GITHUB_OUTPUT
           else
             echo "ERROR: Binary not found at $BINARY_PATH"
+            echo "Listing dist/ directory contents:"
+            ls -lah dist/ || true
+            echo "binary_path=" >> $GITHUB_OUTPUT
             exit 1
           fi
         shell: bash
@@ -371,8 +382,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-binary
-          path: |
-            ${{ matrix.os == 'macos-latest' && 'dist/OA-OrientationAutomator.bin' || format('dist/{0}', matrix.binary_name) }}
+          path: ${{ steps.verify-binary.outputs.binary_path }}
           if-no-files-found: warn
 
       - name: Upload distribution package
