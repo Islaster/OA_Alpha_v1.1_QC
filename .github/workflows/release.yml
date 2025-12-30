@@ -239,8 +239,29 @@ jobs:
 
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             BINARY_PATH="dist/${{ matrix.binary_name }}"
+
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            BINARY_PATH="dist/${{ matrix.binary_name }}.app"
+            # Nuitka names the .app after the entry script (e.g. gui_new.app).
+            # Find whatever .app was produced and then normalize the name.
+            APP_FOUND="$(find dist -maxdepth 1 -type d -name '*.app' | head -1)"
+
+            if [ -z "$APP_FOUND" ]; then
+              echo "ERROR: No .app bundle found in dist/"
+              find dist -maxdepth 2 -print || true
+              exit 1
+            fi
+
+            echo "✓ Found app bundle: $APP_FOUND"
+
+            TARGET_APP="dist/${{ matrix.binary_name }}.app"
+            if [ "$APP_FOUND" != "$TARGET_APP" ]; then
+              echo "Renaming $APP_FOUND -> $TARGET_APP"
+              rm -rf "$TARGET_APP"
+              mv "$APP_FOUND" "$TARGET_APP"
+            fi
+
+            BINARY_PATH="$TARGET_APP"
+
           else
             BINARY_PATH="dist/${{ matrix.binary_name }}"
           fi
@@ -255,12 +276,11 @@ jobs:
             exit 1
           fi
 
-          # macOS sanity check: confirm icon keys exist (best-effort)
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             echo "macOS bundle check:"
-            ls -lah "dist/${{ matrix.binary_name }}.app/Contents" || true
-            ls -lah "dist/${{ matrix.binary_name }}.app/Contents/Resources" || true
-            plutil -p "dist/${{ matrix.binary_name }}.app/Contents/Info.plist" | grep -i -E "CFBundleIcon|Icon" || true
+            ls -lah "$BINARY_PATH/Contents" || true
+            ls -lah "$BINARY_PATH/Contents/Resources" || true
+            plutil -p "$BINARY_PATH/Contents/Info.plist" | grep -i -E "CFBundleIcon|Icon" || true
           fi
         shell: bash
 
