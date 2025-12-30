@@ -171,10 +171,11 @@ jobs:
               echo "⚠️ assets/icon.ico not found, skipping icon"
             fi
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            NUITKA_EXTRA="--macos-create-app-bundle"
+            # Note: --onefile creates .bin, not .app bundle
+            # Icon is embedded in the binary when using --macos-app-icon
             if [ -f "assets/icon.icns" ]; then
-              NUITKA_EXTRA="$NUITKA_EXTRA --macos-app-icon=assets/icon.icns"
-              echo "✓ Using icon: assets/icon.icns"
+              NUITKA_EXTRA="--macos-app-icon=assets/icon.icns"
+              echo "✓ Using icon: assets/icon.icns (embedded in binary)"
             else
               echo "⚠️ assets/icon.icns not found, skipping icon"
             fi
@@ -225,11 +226,18 @@ jobs:
           echo "Verifying compiled binary..."
           ls -lh dist/
           
-          # Check that binary was created
+          # Check that binary was created (Nuitka creates .bin on macOS with --onefile)
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             BINARY_PATH="dist/${{ matrix.binary_name }}"
-          elif [ "${{ matrix.os }}" == "macos-latest" ] && [ -d "dist/${{ matrix.binary_name }}.app" ]; then
-            BINARY_PATH="dist/${{ matrix.binary_name }}.app"
+          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+            # Nuitka with --onefile creates .bin file, not .app bundle
+            if [ -f "dist/${{ matrix.binary_name }}.bin" ]; then
+              BINARY_PATH="dist/${{ matrix.binary_name }}.bin"
+            elif [ -f "dist/${{ matrix.binary_name }}" ]; then
+              BINARY_PATH="dist/${{ matrix.binary_name }}"
+            else
+              BINARY_PATH="dist/${{ matrix.binary_name }}.bin"
+            fi
           else
             BINARY_PATH="dist/${{ matrix.binary_name }}"
           fi
@@ -238,109 +246,12 @@ jobs:
             echo "✓ Binary created successfully: $BINARY_PATH"
             ls -lh "$BINARY_PATH"
             
-            # For macOS .app bundle, verify and fix icon
-            if [ "${{ matrix.os }}" == "macos-latest" ] && [ -d "$BINARY_PATH" ]; then
-              echo "🔍 Setting up macOS app bundle icon..."
-              
-              # Ensure Resources directory exists
-              mkdir -p "$BINARY_PATH/Contents/Resources"
-              
-              # Copy icon if it exists
-              if [ -f "assets/icon.icns" ]; then
-                echo "📦 Copying icon to app bundle..."
-                cp "assets/icon.icns" "$BINARY_PATH/Contents/Resources/icon.icns"
-                
-                # Also try without extension (some apps expect this)
-                cp "assets/icon.icns" "$BINARY_PATH/Contents/Resources/icon"
-                
-                echo "✓ Icon files copied to Contents/Resources/"
-                ls -lh "$BINARY_PATH/Contents/Resources/" | grep icon || echo "⚠️ Icon files not visible"
-              else
-                echo "⚠️ assets/icon.icns not found - cannot set icon"
-              fi
-              
-              # Update Info.plist to reference icon
-              if [ -f "$BINARY_PATH/Contents/Info.plist" ]; then
-                echo "📝 Updating Info.plist with icon reference..."
-                
-                # Use PlistBuddy to set icon
-                if command -v /usr/libexec/PlistBuddy &> /dev/null; then
-                  # Try to set (will create if doesn't exist)
-                  /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || \
-                  /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null
-                  
-                  # Also set CFBundleIconName (alternative method)
-                  /usr/libexec/PlistBuddy -c "Set :CFBundleIconName icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || \
-                  /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null
-                  
-                  # Verify it was set
-                  echo "Current Info.plist icon settings:"
-                  /usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || echo "  CFBundleIconFile: not set"
-                  /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || echo "  CFBundleIconName: not set"
-                  
-                  echo "✓ Info.plist updated"
-                else
-                  echo "⚠️ PlistBuddy not available, trying manual update..."
-                  # Fallback: use Python to add icon reference (single line to avoid YAML issues)
-                  if ! grep -q "CFBundleIconFile" "$BINARY_PATH/Contents/Info.plist"; then
-                    python3 -c "import plistlib; f=open('$BINARY_PATH/Contents/Info.plist','rb'); p=plistlib.load(f); f.close(); p['CFBundleIconFile']='icon'; f=open('$BINARY_PATH/Contents/Info.plist','wb'); plistlib.dump(p,f); f.close(); print('✓ Updated Info.plist')" 2>/dev/null || echo "⚠️ Could not update Info.plist with Python"
-                  fi
-                fi
-              else
-                echo "⚠️ Info.plist not found at $BINARY_PATH/Contents/Info.plist"
-                echo "Creating basic Info.plist..."
-                mkdir -p "$BINARY_PATH/Contents"
-                # Use Python to create Info.plist (avoids YAML heredoc issues)
-                python3 -c "import plistlib; p={'CFBundleExecutable':'${{ matrix.binary_name }}','CFBundleIconFile':'icon','CFBundleIdentifier':'com.oa.orientationautomator','CFBundleName':'OA-OrientationAutomator','CFBundlePackageType':'APPL','CFBundleVersion':'1.1.0'}; f=open('$BINARY_PATH/Contents/Info.plist','wb'); plistlib.dump(p,f); f.close(); print('✓ Created Info.plist with icon reference')" || echo "⚠️ Could not create Info.plist"
-              fi
-              
-              # Use touchicon to refresh icon (if available)
-              if command -v touchicon &> /dev/null; then
-                echo "🔄 Refreshing icon with touchicon..."
-                touchicon "$BINARY_PATH" 2>/dev/null || echo "⚠️ touchicon failed"
-              fi
-              
-              # Touch the app to refresh Finder cache
-              echo "🔄 Refreshing Finder cache..."
-              touch "$BINARY_PATH"
-              
-              # Verify icon file exists
-              if [ -f "$BINARY_PATH/Contents/Resources/icon.icns" ]; then
-                echo "✓ Icon file verified: Contents/Resources/icon.icns"
-                file "$BINARY_PATH/Contents/Resources/icon.icns" || echo "⚠️ Could not verify icon file type"
-                
-                # Try using fileicon to set icon (if available)
-                if command -v fileicon &> /dev/null; then
-                  echo "🎨 Setting icon with fileicon..."
-                  fileicon set "$BINARY_PATH" "$BINARY_PATH/Contents/Resources/icon.icns" 2>/dev/null && \
-                    echo "✓ Icon set with fileicon" || \
-                    echo "⚠️ fileicon failed (may need installation)"
-                fi
-                
-                # Alternative: Use sips to verify icon is valid
-                if command -v sips &> /dev/null; then
-                  echo "🔍 Verifying icon with sips..."
-                  sips -g format "$BINARY_PATH/Contents/Resources/icon.icns" > /dev/null 2>&1 && \
-                    echo "✓ Icon format verified" || \
-                    echo "⚠️ Icon format verification failed"
-                fi
-              else
-                echo "❌ Icon file missing after copy!"
-              fi
-              
-              # Final verification - check app bundle structure
-              echo ""
-              echo "📋 App Bundle Structure:"
-              echo "  Contents/"
-              ls -la "$BINARY_PATH/Contents/" 2>/dev/null | head -10 || echo "  (cannot list)"
-              echo ""
-              echo "  Contents/Resources/"
-              ls -la "$BINARY_PATH/Contents/Resources/" 2>/dev/null | grep -i icon || echo "  (no icon files found)"
-              echo ""
-              echo "  Info.plist icon settings:"
-              if [ -f "$BINARY_PATH/Contents/Info.plist" ]; then
-                grep -i "CFBundleIcon" "$BINARY_PATH/Contents/Info.plist" || echo "  (no icon settings found)"
-              fi
+            # Note: With --onefile, Nuitka creates a .bin file, not an .app bundle
+            # Icon is embedded via --macos-app-icon flag during compilation
+            if [ "${{ matrix.os }}" == "macos-latest" ] && [ -f "$BINARY_PATH" ]; then
+              echo "ℹ️ macOS binary created as .bin file"
+              echo "ℹ️ Icon should be embedded via --macos-app-icon flag (set during compilation)"
+              echo "ℹ️ To set icon manually after download, use: fileicon set <binary> <icon.icns>"
             fi
           else
             echo "ERROR: Binary not found at $BINARY_PATH"
@@ -392,9 +303,13 @@ jobs:
           
           mkdir -p release/${{ matrix.artifact_name }}
           
-          # Copy binary (handle .app bundle for macOS)
-          if [ "${{ matrix.os }}" == "macos-latest" ] && [ -d "dist/${{ matrix.binary_name }}.app" ]; then
-            cp -r "dist/${{ matrix.binary_name }}.app" "release/${{ matrix.artifact_name }}/"
+          # Copy binary (Nuitka creates .bin on macOS with --onefile)
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            if [ -f "dist/${{ matrix.binary_name }}.bin" ]; then
+              cp "dist/${{ matrix.binary_name }}.bin" "release/${{ matrix.artifact_name }}/"
+            elif [ -f "dist/${{ matrix.binary_name }}" ]; then
+              cp "dist/${{ matrix.binary_name }}" "release/${{ matrix.artifact_name }}/"
+            fi
           elif [ -f "dist/${{ matrix.binary_name }}" ]; then
             cp "dist/${{ matrix.binary_name }}" "release/${{ matrix.artifact_name }}/"
           fi
@@ -453,7 +368,7 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}-binary
           path: |
-            ${{ matrix.os == 'macos-latest' && 'dist/OA-OrientationAutomator.app' || format('dist/{0}', matrix.binary_name) }}
+            ${{ matrix.os == 'macos-latest' && 'dist/OA-OrientationAutomator.bin' || format('dist/{0}', matrix.binary_name) }}
           if-no-files-found: warn
 
       - name: Upload distribution package
