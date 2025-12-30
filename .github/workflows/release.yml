@@ -240,48 +240,107 @@ jobs:
             
             # For macOS .app bundle, verify and fix icon
             if [ "${{ matrix.os }}" == "macos-latest" ] && [ -d "$BINARY_PATH" ]; then
-              echo "🔍 Checking macOS app bundle structure..."
+              echo "🔍 Setting up macOS app bundle icon..."
               
               # Ensure Resources directory exists
               mkdir -p "$BINARY_PATH/Contents/Resources"
               
-              # Copy icon if it exists and isn't already there
+              # Copy icon if it exists
               if [ -f "assets/icon.icns" ]; then
-                if [ ! -f "$BINARY_PATH/Contents/Resources/icon.icns" ]; then
-                  echo "📦 Copying icon to app bundle..."
-                  cp "assets/icon.icns" "$BINARY_PATH/Contents/Resources/icon.icns"
-                  echo "✓ Icon copied to Contents/Resources/icon.icns"
-                else
-                  echo "✓ Icon already exists in app bundle"
-                fi
+                echo "📦 Copying icon to app bundle..."
+                cp "assets/icon.icns" "$BINARY_PATH/Contents/Resources/icon.icns"
+                
+                # Also try without extension (some apps expect this)
+                cp "assets/icon.icns" "$BINARY_PATH/Contents/Resources/icon"
+                
+                echo "✓ Icon files copied to Contents/Resources/"
+                ls -lh "$BINARY_PATH/Contents/Resources/" | grep icon || echo "⚠️ Icon files not visible"
               else
-                echo "⚠️ assets/icon.icns not found"
+                echo "⚠️ assets/icon.icns not found - cannot set icon"
               fi
               
               # Update Info.plist to reference icon
               if [ -f "$BINARY_PATH/Contents/Info.plist" ]; then
-                echo "📝 Updating Info.plist..."
-                # Use PlistBuddy to set icon (works even if key exists)
+                echo "📝 Updating Info.plist with icon reference..."
+                
+                # Use PlistBuddy to set icon
                 if command -v /usr/libexec/PlistBuddy &> /dev/null; then
+                  # Try to set (will create if doesn't exist)
                   /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || \
                   /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null
                   
+                  # Also set CFBundleIconName (alternative method)
+                  /usr/libexec/PlistBuddy -c "Set :CFBundleIconName icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || \
+                  /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string icon" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null
+                  
                   # Verify it was set
-                  if /usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null | grep -q "icon"; then
-                    echo "✓ Icon reference set in Info.plist"
-                  else
-                    echo "⚠️ Could not verify icon in Info.plist"
-                  fi
+                  echo "Current Info.plist icon settings:"
+                  /usr/libexec/PlistBuddy -c "Print :CFBundleIconFile" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || echo "  CFBundleIconFile: not set"
+                  /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || echo "  CFBundleIconName: not set"
+                  
+                  echo "✓ Info.plist updated"
                 else
-                  echo "⚠️ PlistBuddy not available, cannot update Info.plist"
+                  echo "⚠️ PlistBuddy not available, trying manual update..."
+                  # Fallback: use Python to add icon reference (single line to avoid YAML issues)
+                  if ! grep -q "CFBundleIconFile" "$BINARY_PATH/Contents/Info.plist"; then
+                    python3 -c "import plistlib; f=open('$BINARY_PATH/Contents/Info.plist','rb'); p=plistlib.load(f); f.close(); p['CFBundleIconFile']='icon'; f=open('$BINARY_PATH/Contents/Info.plist','wb'); plistlib.dump(p,f); f.close(); print('✓ Updated Info.plist')" 2>/dev/null || echo "⚠️ Could not update Info.plist with Python"
+                  fi
                 fi
               else
-                echo "⚠️ Info.plist not found"
+                echo "⚠️ Info.plist not found at $BINARY_PATH/Contents/Info.plist"
+                echo "Creating basic Info.plist..."
+                mkdir -p "$BINARY_PATH/Contents"
+                # Use Python to create Info.plist (avoids YAML heredoc issues)
+                python3 -c "import plistlib; p={'CFBundleExecutable':'${{ matrix.binary_name }}','CFBundleIconFile':'icon','CFBundleIdentifier':'com.oa.orientationautomator','CFBundleName':'OA-OrientationAutomator','CFBundlePackageType':'APPL','CFBundleVersion':'1.1.0'}; f=open('$BINARY_PATH/Contents/Info.plist','wb'); plistlib.dump(p,f); f.close(); print('✓ Created Info.plist with icon reference')" || echo "⚠️ Could not create Info.plist"
               fi
               
-              # Refresh Finder icon cache (for testing)
-              echo "🔄 Refreshing icon cache..."
+              # Use touchicon to refresh icon (if available)
+              if command -v touchicon &> /dev/null; then
+                echo "🔄 Refreshing icon with touchicon..."
+                touchicon "$BINARY_PATH" 2>/dev/null || echo "⚠️ touchicon failed"
+              fi
+              
+              # Touch the app to refresh Finder cache
+              echo "🔄 Refreshing Finder cache..."
               touch "$BINARY_PATH"
+              
+              # Verify icon file exists
+              if [ -f "$BINARY_PATH/Contents/Resources/icon.icns" ]; then
+                echo "✓ Icon file verified: Contents/Resources/icon.icns"
+                file "$BINARY_PATH/Contents/Resources/icon.icns" || echo "⚠️ Could not verify icon file type"
+                
+                # Try using fileicon to set icon (if available)
+                if command -v fileicon &> /dev/null; then
+                  echo "🎨 Setting icon with fileicon..."
+                  fileicon set "$BINARY_PATH" "$BINARY_PATH/Contents/Resources/icon.icns" 2>/dev/null && \
+                    echo "✓ Icon set with fileicon" || \
+                    echo "⚠️ fileicon failed (may need installation)"
+                fi
+                
+                # Alternative: Use sips to verify icon is valid
+                if command -v sips &> /dev/null; then
+                  echo "🔍 Verifying icon with sips..."
+                  sips -g format "$BINARY_PATH/Contents/Resources/icon.icns" > /dev/null 2>&1 && \
+                    echo "✓ Icon format verified" || \
+                    echo "⚠️ Icon format verification failed"
+                fi
+              else
+                echo "❌ Icon file missing after copy!"
+              fi
+              
+              # Final verification - check app bundle structure
+              echo ""
+              echo "📋 App Bundle Structure:"
+              echo "  Contents/"
+              ls -la "$BINARY_PATH/Contents/" 2>/dev/null | head -10 || echo "  (cannot list)"
+              echo ""
+              echo "  Contents/Resources/"
+              ls -la "$BINARY_PATH/Contents/Resources/" 2>/dev/null | grep -i icon || echo "  (no icon files found)"
+              echo ""
+              echo "  Info.plist icon settings:"
+              if [ -f "$BINARY_PATH/Contents/Info.plist" ]; then
+                grep -i "CFBundleIcon" "$BINARY_PATH/Contents/Info.plist" || echo "  (no icon settings found)"
+              fi
             fi
           else
             echo "ERROR: Binary not found at $BINARY_PATH"
