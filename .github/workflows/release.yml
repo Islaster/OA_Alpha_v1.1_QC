@@ -173,11 +173,15 @@ jobs:
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
             # Note: --onefile creates .bin, not .app bundle
             # Icon is embedded in the binary when using --macos-app-icon
-            if [ -f "assets/icon.icns" ]; then
+            # Let Nuitka convert PNG to ICNS (more reliable than using pre-made ICNS)
+            if [ -f "assets/icon.png" ]; then
+              NUITKA_EXTRA="--macos-app-icon=assets/icon.png"
+              echo "✓ Using icon: assets/icon.png (Nuitka will convert to ICNS automatically)"
+            elif [ -f "assets/icon.icns" ]; then
               NUITKA_EXTRA="--macos-app-icon=assets/icon.icns"
-              echo "✓ Using icon: assets/icon.icns (embedded in binary)"
+              echo "✓ Using icon: assets/icon.icns (fallback, embedded in binary)"
             else
-              echo "⚠️ assets/icon.icns not found, skipping icon"
+              echo "⚠️ No icon file found (checked icon.png and icon.icns), skipping icon"
             fi
           else
             if [ -f "assets/icon.png" ]; then
