@@ -5,8 +5,9 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QLineEdit, QPushButton, QMessageBox, QTextBrowser
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QFont, QDesktopServices, QPixmap
+import os
 
 from src.licensing import LicenseValidator, LicenseStorage
 
@@ -37,14 +38,51 @@ class LicenseDialog(QDialog):
         layout.setSpacing(20)
         layout.setContentsMargins(30, 30, 30, 30)
         
-        # Title
-        title = QLabel("🎯 OA - Orientation Automator")
+        # Title with icon
+        title_layout = QHBoxLayout()
+        title_layout.setAlignment(Qt.AlignCenter)
+        
+        # Load and scale icon to match emoji size (~24px for 18pt font)
+        # Try multiple possible paths (development vs compiled)
+        possible_paths = [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "icon.png"),
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "assets", "icon.png"),
+            "assets/icon.png",
+            os.path.join(os.getcwd(), "assets", "icon.png"),
+        ]
+        
+        icon_loaded = False
+        for icon_path in possible_paths:
+            if os.path.exists(icon_path):
+                try:
+                    icon_pixmap = QPixmap(icon_path)
+                    if not icon_pixmap.isNull():
+                        # Scale to ~24px height to match emoji size (18pt font ≈ 24px emoji)
+                        icon_pixmap = icon_pixmap.scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        icon_label = QLabel()
+                        icon_label.setPixmap(icon_pixmap)
+                        title_layout.addWidget(icon_label)
+                        title_layout.addSpacing(8)  # Small spacing between icon and text
+                        icon_loaded = True
+                        break
+                except Exception:
+                    continue
+        
+        # Fallback to emoji if icon not found
+        if not icon_loaded:
+            icon_label = QLabel("🎯")
+            icon_label.setFont(QFont("", 18))  # Match font size
+            title_layout.addWidget(icon_label)
+            title_layout.addSpacing(8)
+        
+        title_text = QLabel("OA - Orientation Automator")
         title_font = QFont()
         title_font.setPointSize(18)
         title_font.setBold(True)
-        title.setFont(title_font)
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+        title_text.setFont(title_font)
+        title_layout.addWidget(title_text)
+        
+        layout.addLayout(title_layout)
         
         # Version info
         version_label = QLabel("Version 1.1.0 - Professional Edition")
@@ -55,14 +93,14 @@ class LicenseDialog(QDialog):
         
         # Info box
         info_box = QTextBrowser()
-        info_box.setMaximumHeight(100)
+        info_box.setMaximumHeight(120)
         info_box.setOpenExternalLinks(True)
         info_box.setHtml("""
             <div style='font-size: 11pt; line-height: 1.5;'>
                 <p><b>🔑 License Required</b></p>
                 <p>A valid license key is required to use this application.</p>
                 <p style='margin-top: 10px;'>
-                    <a href='https://yourstore.lemonsqueezy.com'>Purchase a license</a>
+                    <a href='https://gruntwave.lemonsqueezy.com/checkout/buy/45184e99-9c63-414d-bca1-e5f8b4063c4e' style='color: #4CAF50; text-decoration: none; font-weight: bold;'>Purchase a License →</a>
                 </p>
             </div>
         """)
@@ -269,16 +307,20 @@ class LicenseChecker:
     @staticmethod
     def show_purchase_dialog(parent=None):
         """Show information about purchasing a license."""
-        QMessageBox.information(
-            parent,
-            "Purchase License",
-            "🔑 License Required\n\n"
-            "A valid license is required to use this application.\n\n"
-            "Features included:\n"
-            "• Advanced bounding box optimization\n"
-            "• Multiple file format support\n"
-            "• Learning system\n"
-            "• Priority support\n\n"
-            "Visit: https://yourstore.lemonsqueezy.com"
-        )
+        msg = QMessageBox(parent)
+        msg.setWindowTitle("Purchase License")
+        msg.setText("🔑 License Required\n\n"
+                   "A valid license is required to use this application.\n\n"
+                   "Features included:\n"
+                   "• Advanced bounding box optimization\n"
+                   "• Multiple file format support\n"
+                   "• Learning system\n"
+                   "• Priority support")
+        msg.setInformativeText("Click 'Open Store' to purchase a license.")
+        msg.addButton("Open Store", QMessageBox.AcceptRole)
+        msg.addButton("Cancel", QMessageBox.RejectRole)
+        
+        result = msg.exec()
+        if result == QMessageBox.AcceptRole:
+            QDesktopServices.openUrl(QUrl("https://gruntwave.lemonsqueezy.com/checkout/buy/45184e99-9c63-414d-bca1-e5f8b4063c4e"))
 
