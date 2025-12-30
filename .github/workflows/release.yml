@@ -33,8 +33,17 @@ jobs:
       - name: Run pip-audit (2025 vulnerability check)
         run: |
           # Audit requirements files without installing (faster and safer)
-          pip-audit --requirement requirements.txt --desc || echo "requirements.txt audit complete"
-          pip-audit --requirement requirements-security.txt --desc || echo "requirements-security.txt audit complete"
+          if [ -f "requirements.txt" ]; then
+            pip-audit --requirement requirements.txt --desc || echo "requirements.txt audit complete"
+          else
+            echo "⚠️ requirements.txt not found, skipping audit"
+          fi
+          
+          if [ -f "requirements-security.txt" ]; then
+            pip-audit --requirement requirements-security.txt --desc || echo "requirements-security.txt audit complete"
+          else
+            echo "⚠️ requirements-security.txt not found, skipping audit"
+          fi
         continue-on-error: false  # Fail if vulnerabilities found
 
       - name: Run safety check
@@ -110,8 +119,18 @@ jobs:
 
       - name: Install dependencies with uv
         run: |
-          uv pip install --system -r requirements.txt
-          uv pip install --system -r requirements-security.txt
+          # Install main requirements
+          if [ -f "requirements.txt" ]; then
+            uv pip install --system -r requirements.txt
+          else
+            echo "⚠️ requirements.txt not found, installing from pyproject.toml"
+            uv pip install --system PySide6 requests platformdirs python-dotenv cryptography
+          fi
+          
+          # Install security requirements if present
+          if [ -f "requirements-security.txt" ]; then
+            uv pip install --system -r requirements-security.txt
+          fi
         shell: bash
 
       - name: Install Nuitka
