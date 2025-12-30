@@ -5,12 +5,96 @@ Refactored version with modular architecture.
 ⚠️ LICENSE REQUIRED - No access without valid license.
 """
 import sys
+import time
 from PySide6.QtWidgets import QApplication, QMessageBox
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
+from src.gui.splash_screen import SplashScreen
 from src.gui.license_dialog import LicenseDialog
 from src.gui.main_window import MainWindow
 from src.licensing import LicenseStorage, LicenseValidator
+
+
+def initialize_app(splash, app):
+    """
+    Initialize application with progress updates during startup.
+    
+    Args:
+        splash: SplashScreen instance for progress updates
+        app: QApplication instance
+    
+    Returns:
+        tuple: (has_existing_license, window_or_dialog, main_window)
+    """
+    # Step 1: Load configuration and modules
+    splash.set_progress(10, "Loading application modules...")
+    app.processEvents()
+    time.sleep(0.05)
+    
+    splash.set_progress(20, "Initializing configuration...")
+    app.processEvents()
+    time.sleep(0.05)
+    
+    # Step 2: Check for existing license (fast local check)
+    splash.set_progress(30, "Checking license status...")
+    app.processEvents()
+    storage = LicenseStorage()
+    has_existing_license = False
+    main_window = None
+    
+    if storage.is_activated():
+        splash.set_progress(50, "Validating license...")
+        app.processEvents()
+        
+        # Verify the existing license is still valid
+        validator = LicenseValidator()
+        license_key = storage.get_license_key()
+        
+        splash.set_progress(70, "Connecting to license server...")
+        app.processEvents()
+        
+        is_valid, message, _ = validator.check_license(license_key)
+        
+        if is_valid:
+            has_existing_license = True
+            splash.set_progress(85, "License verified - loading application...")
+            app.processEvents()
+            time.sleep(0.1)
+            
+            # Initialize main window
+            splash.set_progress(90, "Preparing user interface...")
+            app.processEvents()
+            main_window = MainWindow()
+            
+            splash.set_progress(100, "Ready!")
+            app.processEvents()
+            time.sleep(0.2)
+            
+            return (True, None, main_window)
+        else:
+            # Clear invalid license
+            storage.clear_license()
+            splash.set_progress(60, "License validation failed...")
+            app.processEvents()
+            time.sleep(0.1)
+    
+    # Step 3: Prepare license dialog if needed
+    if not has_existing_license:
+        splash.set_progress(70, "Preparing license activation...")
+        app.processEvents()
+        time.sleep(0.05)
+        
+        splash.set_progress(85, "Loading license dialog...")
+        app.processEvents()
+        license_dialog = LicenseDialog()
+        
+        splash.set_progress(100, "Ready!")
+        app.processEvents()
+        time.sleep(0.2)
+        
+        return (False, license_dialog, None)
+    
+    return (True, None, main_window)
 
 
 def main():
@@ -24,53 +108,75 @@ def main():
     app.setStyle("Fusion")
     
     # ========================================
+    # SHOW LOADING SCREEN
+    # ========================================
+    splash = SplashScreen()
+    splash.show()
+    app.processEvents()
+    
+    # ========================================
+    # INITIALIZE WITH PROGRESS UPDATES
+    # ========================================
+    try:
+        has_existing_license, dialog_or_none, main_window = initialize_app(splash, app)
+        
+        # ========================================
     # LICENSE GATE - MANDATORY
     # ========================================
-    
-    # First, check if a valid license already exists
-    storage = LicenseStorage()
-    has_existing_license = False
-    
-    if storage.is_activated():
-        # Verify the existing license is still valid
-        validator = LicenseValidator()
-        license_key = storage.get_license_key()
-        is_valid, message, _ = validator.check_license(license_key)
         
-        if is_valid:
-            has_existing_license = True
-            print(f"✅ Valid license found - launching application...")
+        if has_existing_license and main_window:
+            # License valid - close splash and show main window
+            splash.close()
+            app.processEvents()
+            main_window.show()
+            sys.exit(app.exec())
+        
+        elif not has_existing_license and dialog_or_none:
+            # No license - close splash and show license dialog
+            splash.close()
+            app.processEvents()
+            
+            result = dialog_or_none.exec()
+            
+            # If dialog was rejected (Exit clicked or closed), quit immediately
+            if result != QMessageBox.Accepted:
+                return 0
+            
+            # Verify license is activated - HARD REQUIREMENT
+            if not dialog_or_none.is_activated():
+                QMessageBox.critical(
+                    None,
+                    "License Required",
+                    "❌ A valid license is required to use this application.\n\n"
+                    "Please activate your license or purchase one to continue."
+                )
+                return 1
+            
+            # License activated - show main window
+            window = MainWindow()
+            window.show()
+            sys.exit(app.exec())
+        
         else:
-            # Clear invalid license
-            storage.clear_license()
-            print(f"⚠️ Existing license is invalid - showing license dialog...")
-    
-    # Only show license dialog if no valid license exists
-    if not has_existing_license:
-        license_dialog = LicenseDialog()
-        result = license_dialog.exec()
-        
-        # If dialog was rejected (Exit clicked or closed), quit immediately
-        if result != QMessageBox.Accepted:
-            return 0
-        
-        # Verify license is activated - HARD REQUIREMENT
-        if not license_dialog.is_activated():
+            # Unexpected state
+            splash.close()
             QMessageBox.critical(
                 None,
-                "License Required",
-                "❌ A valid license is required to use this application.\n\n"
-                "Please activate your license or purchase one to continue."
+                "Startup Error",
+                "An unexpected error occurred during startup."
             )
             return 1
-    
-    # ========================================
-    # License valid - proceed to main window
-    # ========================================
-    window = MainWindow()
-    window.show()
-    
-    sys.exit(app.exec())
+        
+    except Exception as e:
+        splash.set_progress(100, f"Error: {str(e)}")
+        app.processEvents()
+        QTimer.singleShot(2000, splash.close)
+        QMessageBox.critical(
+            None,
+            "Startup Error",
+            f"An error occurred during startup:\n\n{str(e)}"
+        )
+        return 1
 
 
 if __name__ == "__main__":
