@@ -161,16 +161,31 @@ jobs:
         run: |
           echo "Starting Nuitka compilation..."
           
-          # Platform-specific Nuitka options
+          # Platform-specific Nuitka options (only add icon if file exists)
+          NUITKA_EXTRA=""
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            NUITKA_EXTRA="--windows-disable-console --windows-icon-from-ico=assets/icon.ico"
+            NUITKA_EXTRA="--windows-disable-console"
+            if [ -f "assets/icon.ico" ]; then
+              NUITKA_EXTRA="$NUITKA_EXTRA --windows-icon-from-ico=assets/icon.ico"
+            else
+              echo "⚠️ assets/icon.ico not found, skipping icon"
+            fi
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            NUITKA_EXTRA="--macos-create-app-bundle --macos-app-icon=assets/icon.icns"
+            NUITKA_EXTRA="--macos-create-app-bundle"
+            if [ -f "assets/icon.icns" ]; then
+              NUITKA_EXTRA="$NUITKA_EXTRA --macos-app-icon=assets/icon.icns"
+            else
+              echo "⚠️ assets/icon.icns not found, skipping icon"
+            fi
           else
-            NUITKA_EXTRA="--linux-icon=assets/icon.png"
+            if [ -f "assets/icon.png" ]; then
+              NUITKA_EXTRA="--linux-icon=assets/icon.png"
+            else
+              echo "⚠️ assets/icon.png not found, skipping icon"
+            fi
           fi
           
-          # Compile GUI application
+          # Compile GUI application with auto-approve downloads
           python -m nuitka \
             --standalone \
             --onefile \
@@ -180,6 +195,7 @@ jobs:
             --include-data-files=env.example=env.example \
             --noinclude-pytest-mode=nofollow \
             --noinclude-setuptools-mode=nofollow \
+            --assume-yes-for-downloads \
             --output-dir=dist \
             --output-filename=${{ matrix.binary_name }} \
             $NUITKA_EXTRA \
@@ -190,6 +206,7 @@ jobs:
                 --onefile \
                 --enable-plugin=pyside6 \
                 --include-package=src \
+                --assume-yes-for-downloads \
                 --output-dir=dist \
                 --output-filename=${{ matrix.binary_name }} \
                 gui_new.py
