@@ -392,8 +392,10 @@ jobs:
           
           mkdir -p release/${{ matrix.artifact_name }}
           
-          # Copy binary
-          if [ -f "dist/${{ matrix.binary_name }}" ]; then
+          # Copy binary (handle .app bundle for macOS)
+          if [ "${{ matrix.os }}" == "macos-latest" ] && [ -d "dist/${{ matrix.binary_name }}.app" ]; then
+            cp -r "dist/${{ matrix.binary_name }}.app" "release/${{ matrix.artifact_name }}/"
+          elif [ -f "dist/${{ matrix.binary_name }}" ]; then
             cp "dist/${{ matrix.binary_name }}" "release/${{ matrix.artifact_name }}/"
           fi
           
@@ -450,7 +452,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}-binary
-          path: dist/${{ matrix.binary_name }}
+          path: |
+            ${{ matrix.os == 'macos-latest' && 'dist/OA-OrientationAutomator.app' || format('dist/{0}', matrix.binary_name) }}
           if-no-files-found: warn
 
       - name: Upload distribution package
