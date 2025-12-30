@@ -164,7 +164,7 @@ jobs:
           # Platform-specific Nuitka options (only add icon if file exists)
           NUITKA_EXTRA=""
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            NUITKA_EXTRA="--windows-disable-console"
+            NUITKA_EXTRA="--windows-console-mode=disable"
             if [ -f "assets/icon.ico" ]; then
               NUITKA_EXTRA="$NUITKA_EXTRA --windows-icon-from-ico=assets/icon.ico"
             else
@@ -191,6 +191,8 @@ jobs:
             --onefile \
             --enable-plugin=pyside6 \
             --include-package=src \
+            --include-package=dotenv \
+            --include-package=platformdirs \
             --include-data-files=config.json=config.json \
             --include-data-files=env.example=env.example \
             --noinclude-pytest-mode=nofollow \
@@ -206,6 +208,8 @@ jobs:
                 --onefile \
                 --enable-plugin=pyside6 \
                 --include-package=src \
+                --include-package=dotenv \
+                --include-package=platformdirs \
                 --assume-yes-for-downloads \
                 --output-dir=dist \
                 --output-filename=${{ matrix.binary_name }} \

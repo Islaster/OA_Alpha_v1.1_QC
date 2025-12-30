@@ -164,7 +164,7 @@ onefile = true
 # Enable PySide6 plugin
 enable-plugins = ["pyside6"]
 # Include all source packages
-include-package = ["src"]
+include-package = ["src", "dotenv", "platformdirs"]
 # Include data files
 include-data-files = [
     "config.json=config.json",
@@ -178,7 +178,7 @@ output-dir = "dist"
 
 # Platform-specific settings
 [tool.nuitka.windows]
-windows-disable-console = true
+windows-console-mode = "disable"
 windows-icon-from-ico = "assets/icon.ico"
 
 [tool.nuitka.macos]
