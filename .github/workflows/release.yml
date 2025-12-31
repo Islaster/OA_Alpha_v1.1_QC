@@ -238,6 +238,49 @@ jobs:
           echo "✓ Nuitka compilation complete"
         shell: bash
 
+      - name: Copy src directory to app bundle (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Find the .app bundle
+          APP_FOUND="$(find dist -maxdepth 1 -type d -name '*.app' | head -1)"
+          if [ -z "$APP_FOUND" ]; then
+            echo "ERROR: No .app bundle found"
+            exit 1
+          fi
+          
+          # Copy src directory to Contents/Resources/ (where Blender can find it)
+          if [ -d "src" ]; then
+            echo "Copying src directory to app bundle..."
+            mkdir -p "$APP_FOUND/Contents/Resources"
+            cp -r src "$APP_FOUND/Contents/Resources/"
+            echo "✓ src directory copied to $APP_FOUND/Contents/Resources/src"
+            
+            # Verify it was copied
+            if [ -d "$APP_FOUND/Contents/Resources/src" ]; then
+              echo "✓ Verified: src directory exists in app bundle"
+              ls -la "$APP_FOUND/Contents/Resources/src" | head -5
+            else
+              echo "❌ ERROR: src directory not found after copy"
+              exit 1
+            fi
+          else
+            echo "⚠️  WARNING: src directory not found in source"
+          fi
+        shell: bash
+
+      - name: Copy src directory to executable directory (Windows/Linux)
+        if: matrix.os != 'macos-latest'
+        run: |
+          # For Windows/Linux, copy src next to the executable
+          if [ -d "src" ]; then
+            echo "Copying src directory to dist..."
+            cp -r src "dist/"
+            echo "✓ src directory copied to dist/src"
+          else
+            echo "⚠️  WARNING: src directory not found in source"
+          fi
+        shell: bash
+
       - name: Verify compilation
         id: verify-binary
         run: |

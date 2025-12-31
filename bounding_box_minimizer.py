@@ -13,46 +13,40 @@ script_dir = Path(__file__).parent.absolute()
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
-# Add src directory to path (for compiled apps, src is included as data files)
-# Try multiple possible locations
+# Add src directory to path (for compiled apps, build process copies src to Contents/Resources/src)
+# Check standard locations where the build process places src
 possible_src_paths = [
-    script_dir / "src",  # Same directory as script (compiled app)
-    script_dir.parent / "src",  # Parent directory
-    script_dir.parent.parent / "src",  # Two levels up (for .app bundles)
-    Path.cwd() / "src",  # Current working directory
+    script_dir.parent / "Resources" / "src",  # Contents/Resources/src (macOS app bundle - where build process copies it)
+    script_dir / "src",  # Same directory as script (Windows/Linux - where build process copies it)
+    Path.cwd() / "src",  # Current working directory (development)
 ]
 
 for src_path in possible_src_paths:
     if src_path.exists() and str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
+        if os.getenv("BLENDER_DEBUG"):
+            print(f"DEBUG: Found src at: {src_path}", file=sys.stderr)
         break
 
-# Try to import and use main_processor if available
 try:
     import main_processor
     # main_processor already handles Blender execution and argument parsing
     if __name__ == "__main__":
         sys.exit(main_processor.main())
 except ImportError as e:
-    # Fallback: inline implementation (shouldn't normally happen)
-    # This matches the logic from main_processor.py
+    # Fallback: inline implementation (shouldn't normally happen if build process worked correctly)
     import argparse
     
-    # If src still not found, try one more time with more paths
-    if "src" not in str(e).lower():
-        # The error isn't about src, so re-raise it
-        raise
+    # If src still not found, show helpful error
+    if "src" in str(e).lower():
+        print(f"ERROR: Could not find 'src' directory. Build process should have copied it to:", file=sys.stderr)
+        print(f"  - {script_dir.parent / 'Resources' / 'src'} (macOS)", file=sys.stderr)
+        print(f"  - {script_dir / 'src'} (Windows/Linux)", file=sys.stderr)
+        print(f"Script location: {script_dir}", file=sys.stderr)
+        sys.exit(1)
     
-    # Try additional paths for compiled apps
-    additional_paths = [
-        script_dir.parent / "Contents" / "MacOS" / "src",  # macOS .app bundle
-        script_dir.parent.parent / "src",  # Another level up
-    ]
-    
-    for src_path in additional_paths:
-        if src_path.exists() and str(src_path) not in sys.path:
-            sys.path.insert(0, str(src_path))
-            break
+    # The error isn't about src, so re-raise it
+    raise
     
     try:
         from src.core.bounding_box import get_bounding_box_volume
