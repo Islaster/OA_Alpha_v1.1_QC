@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
     QProgressBar, QCheckBox, QGroupBox
 )
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QIcon, QPixmap
+
 
 from .blender_finder import find_blender, save_blender_path
 from .theme import get_dark_theme_stylesheet, get_button_style_secondary, get_button_style_primary
@@ -26,11 +28,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("OA - Orientation Automator (Alpha)")
         self.setMinimumSize(550, 420)
-        self.resize(650, 520)
+        self.resize(650, 600) 
+
         self.worker = None
         
         # Apply dark theme
         self.setStyleSheet(get_dark_theme_stylesheet())
+
+        self._apply_window_icon()
         
         # Set up the UI
         self.setup_ui()
@@ -39,6 +44,37 @@ class MainWindow(QMainWindow):
         blender = find_blender()
         if blender:
             self.blender_input.setText(blender)
+    
+    def _resolve_icon_path(self) -> str | None:
+        """
+        Find an icon file that exists at runtime.
+
+        Put an icon in one of these paths in your build:
+          - <app_dir>/assets/icon.png
+          - <app_dir>/assets/icon.ico
+        """
+        app_dir = Path(get_app_dir())
+
+        candidates = [
+            app_dir / "assets" / "icon.png",
+            app_dir / "assets" / "icon.ico",
+            app_dir / "icon.png",
+            app_dir / "icon.ico",
+            Path.cwd() / "assets" / "icon.png",  # dev fallback
+            Path.cwd() / "assets" / "icon.ico",  # dev fallback
+        ]
+
+        for p in candidates:
+            if p.exists():
+                return str(p)
+        return None
+
+    def _apply_window_icon(self):
+        """Set the window/title-bar icon (OS header) if possible."""
+        icon_path = self._resolve_icon_path()
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+
     
     def setup_ui(self):
         """Create the user interface."""
@@ -51,11 +87,29 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(40, 30, 40, 30)
         main_layout.setSpacing(20)
         
-        # Title
+        # Title row (icon + text)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(10)
+        title_row.setAlignment(Qt.AlignCenter)
+
+        icon_label = QLabel()
+        icon_label.setFixedSize(22, 22)
+
+        icon_path = self._resolve_icon_path()
+        if icon_path and icon_path.lower().endswith((".png", ".ico")):
+            pm = QPixmap(icon_path)
+            if not pm.isNull():
+                icon_label.setPixmap(pm.scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
         title = QLabel("OA - Orientation Automator")
         title.setStyleSheet("font-size: 22px; font-weight: bold; color: #ffffff;")
-        title.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(title)
+        title.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+
+        title_row.addWidget(icon_label)
+        title_row.addWidget(title)
+
+        main_layout.addLayout(title_row)
+
         
         # Subtitle
         subtitle = QLabel("Minimize 3D object bounding boxes automatically")
