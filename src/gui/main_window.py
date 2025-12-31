@@ -95,11 +95,11 @@ class MainWindow(QMainWindow):
         self.input_file.setMinimumHeight(36)
         input_layout.addWidget(self.input_file, stretch=1)
         
-        input_btn = QPushButton("Browse...")
-        input_btn.setMinimumHeight(36)
-        input_btn.setCursor(Qt.PointingHandCursor)
-        input_btn.clicked.connect(self.browse_input)
-        input_layout.addWidget(input_btn)
+        self.input_browse_btn = QPushButton("Browse...")
+        self.input_browse_btn.setMinimumHeight(36)
+        self.input_browse_btn.setCursor(Qt.PointingHandCursor)
+        self.input_browse_btn.clicked.connect(self.browse_input)
+        input_layout.addWidget(self.input_browse_btn)
         
         main_layout.addWidget(input_group)
         
@@ -158,46 +158,94 @@ class MainWindow(QMainWindow):
     @Slot()
     def browse_blender(self):
         """Open file dialog to select Blender."""
-        if sys.platform == 'darwin':
-            path, _ = QFileDialog.getOpenFileName(
+        try:
+            if sys.platform == 'darwin':
+                path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Select Blender",
+                    "/Applications",
+                    "All Files (*)",
+                    options=QFileDialog.Option.DontUseNativeDialog  # Use Qt dialog to avoid macOS issues
+                )
+                if path and path.endswith('.app'):
+                    # Convert .app to actual executable
+                    path = os.path.join(path, "Contents/MacOS/Blender")
+            elif sys.platform == 'win32':
+                path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Select Blender",
+                    "C:/Program Files/Blender Foundation",
+                    "Executable (*.exe);;All Files (*)",
+                    options=QFileDialog.Option.DontUseNativeDialog
+                )
+            else:
+                path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Select Blender",
+                    "/usr/bin",
+                    "All Files (*)",
+                    options=QFileDialog.Option.DontUseNativeDialog
+                )
+            
+            if path:
+                self.blender_input.setText(path)
+                save_blender_path(path)
+        except Exception as e:
+            QMessageBox.critical(
                 self,
-                "Select Blender",
-                "/Applications",
-                "All Files (*)"
+                "Error",
+                f"Failed to open file dialog:\n{str(e)}"
             )
-            if path and path.endswith('.app'):
-                # Convert .app to actual executable
-                path = os.path.join(path, "Contents/MacOS/Blender")
-        elif sys.platform == 'win32':
-            path, _ = QFileDialog.getOpenFileName(
-                self,
-                "Select Blender",
-                "C:/Program Files/Blender Foundation",
-                "Executable (*.exe);;All Files (*)"
-            )
-        else:
-            path, _ = QFileDialog.getOpenFileName(
-                self,
-                "Select Blender",
-                "/usr/bin",
-                "All Files (*)"
-            )
-        
-        if path:
-            self.blender_input.setText(path)
-            save_blender_path(path)
     
     @Slot()
     def browse_input(self):
         """Open file dialog to select input 3D model."""
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select 3D Model",
-            "",
-            "3D Models (*.obj *.fbx *.ply *.blend *.gltf *.glb);;All Files (*)"
-        )
-        if path:
-            self.input_file.setText(path)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Disable the button to prevent multiple clicks
+        self.input_browse_btn.setEnabled(False)
+        
+        try:
+            # Set a reasonable starting directory (user's home or Downloads)
+            # Use try/except to avoid blocking on slow filesystems
+            start_dir = ""
+            try:
+                downloads = os.path.expanduser("~/Downloads")
+                if os.path.exists(downloads):
+                    start_dir = downloads
+                else:
+                    start_dir = os.path.expanduser("~")
+            except Exception:
+                # Fallback to current directory if home expansion fails
+                start_dir = os.getcwd()
+            
+            logger.debug(f"Opening file dialog with start_dir: {start_dir}")
+            
+            # Use exec() instead of getOpenFileName for better control
+            # This ensures the dialog is modal and blocks properly
+            dialog = QFileDialog(self, "Select 3D Model", start_dir)
+            dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            dialog.setNameFilter("3D Models (*.obj *.fbx *.ply *.blend *.gltf *.glb);;All Files (*)")
+            dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+            dialog.setOption(QFileDialog.Option.DontResolveSymlinks, True)  # Faster on macOS
+            
+            if dialog.exec() == QFileDialog.DialogCode.Accepted:
+                files = dialog.selectedFiles()
+                if files:
+                    path = files[0]
+                    self.input_file.setText(path)
+                    logger.debug(f"Selected file: {path}")
+        except Exception as e:
+            logger.error(f"Error in browse_input: {e}", exc_info=True)
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to open file dialog:\n{str(e)}"
+            )
+        finally:
+            # Always re-enable the button
+            self.input_browse_btn.setEnabled(True)
     
     @Slot()
     def process(self):
