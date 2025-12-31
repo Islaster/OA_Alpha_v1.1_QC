@@ -137,7 +137,17 @@ class ProcessWorker(threading.Thread):
             # Generic error message (no internal details leaked)
             sanitized = sanitize_log_message(str(e))
             import logging
+            import os
+            from src.utils.paths import get_app_dir
+            
+            # Get log file location
+            log_file = os.path.join(get_app_dir(), "processing_log.txt")
             logging.error(f"Worker error: {sanitized}")
-            self.signals.finished.emit(False, 
-                "An unexpected error occurred. Please check the log file.")
+            
+            error_msg = (
+                f"An unexpected error occurred.\n\n"
+                f"Log file location:\n{log_file}\n\n"
+                f"Please check the log file for details."
+            )
+            self.signals.finished.emit(False, error_msg)
 

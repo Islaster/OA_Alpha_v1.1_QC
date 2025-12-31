@@ -5,7 +5,10 @@ Refactored version with modular architecture.
 ⚠️ LICENSE REQUIRED - No access without valid license.
 """
 import sys
+import os
 import time
+import logging
+from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import Qt, QTimer
 
@@ -13,6 +16,32 @@ from src.gui.splash_screen import SplashScreen
 from src.gui.license_dialog import LicenseDialog
 from src.gui.main_window import MainWindow
 from src.licensing import LicenseStorage, LicenseValidator
+from src.utils.paths import get_app_dir
+from src.security.error_handler import setup_global_error_handler
+
+
+def setup_logging():
+    """Setup application-wide logging."""
+    log_dir = get_app_dir()
+    log_file = os.path.join(log_dir, "processing_log.txt")
+    
+    # Ensure log directory exists
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    
+    # Setup global error handler with log file
+    setup_global_error_handler(log_file)
+    
+    return log_file
 
 
 def initialize_app(splash, app):
@@ -99,6 +128,24 @@ def initialize_app(splash, app):
 
 def main():
     """Main entry point for GUI application."""
+    # Setup logging FIRST (before anything else that might error)
+    log_file = None
+    try:
+        log_file = setup_logging()
+        logger = logging.getLogger(__name__)
+        logger.info("="*60)
+        logger.info("OA - Orientation Automator starting...")
+        logger.info(f"Log file: {log_file}")
+    except Exception as e:
+        # Fallback: at least try to log to a known location
+        fallback_log = os.path.join(os.getcwd(), "processing_log.txt")
+        try:
+            with open(fallback_log, 'a', encoding='utf-8') as f:
+                f.write(f"\n[ERROR] Failed to setup logging: {e}\n")
+            log_file = fallback_log
+        except:
+            pass  # Can't even write to fallback log
+    
     # Enable high DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
@@ -171,10 +218,18 @@ def main():
         splash.set_progress(100, f"Error: {str(e)}")
         app.processEvents()
         QTimer.singleShot(2000, splash.close)
+        
+        # Show error with log file location
+        log_location = log_file if log_file else os.path.join(get_app_dir(), "processing_log.txt")
+        error_msg = (
+            f"An error occurred during startup:\n\n{str(e)}\n\n"
+            f"Log file location:\n{log_location}\n\n"
+            f"Please check the log file for details."
+        )
         QMessageBox.critical(
             None,
             "Startup Error",
-            f"An error occurred during startup:\n\n{str(e)}"
+            error_msg
         )
         return 1
 
