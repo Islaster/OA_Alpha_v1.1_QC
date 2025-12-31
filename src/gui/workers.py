@@ -122,11 +122,40 @@ class ProcessWorker(threading.Thread):
                 self.signals.finished.emit(True,
                     f"Processing complete!\n\nOutput saved to:\n{input_dir}")
             else:
+                # Log the full error details
+                import logging
+                import platform
+                from src.utils.paths import get_app_dir
+                
+                logger = logging.getLogger(__name__)
+                
+                # Get error output from Blender
+                error_output = result.stderr or result.stdout or "Unknown error"
+                
+                # Log full error details
+                logger.error(f"Blender processing failed with return code {result.returncode}")
+                logger.error(f"Blender command: {' '.join(cmd)}")
+                logger.error(f"Blender stderr: {result.stderr[:1000] if result.stderr else '(empty)'}")
+                logger.error(f"Blender stdout: {result.stdout[:1000] if result.stdout else '(empty)'}")
+                
+                # Ensure log is flushed
+                for handler in logger.handlers:
+                    handler.flush()
+                
                 # Sanitize error message before showing to user
-                error = result.stderr or result.stdout or "Unknown error"
-                sanitized_error = sanitize_log_message(error[:500])
+                sanitized_error = sanitize_log_message(error_output[:500])
+                
+                # Get log file location for user message
+                if platform.system() == 'Darwin':
+                    home_dir = os.path.expanduser("~")
+                    log_file = os.path.join(home_dir, "Library", "Logs", "OA-OrientationAutomator", "processing_log.txt")
+                else:
+                    log_file = os.path.join(get_app_dir(), "processing_log.txt")
+                
                 self.signals.finished.emit(False, 
-                    f"Processing failed. Please check the log file for details.")
+                    f"Processing failed.\n\n"
+                    f"Log file: {log_file}\n\n"
+                    f"Please check the log file for details.")
                 
         except subprocess.TimeoutExpired:
             self.signals.finished.emit(False, 
@@ -134,15 +163,32 @@ class ProcessWorker(threading.Thread):
         except ValidationError as ve:
             self.signals.finished.emit(False, f"Validation error: {ve}")
         except Exception as e:
-            # Generic error message (no internal details leaked)
-            sanitized = sanitize_log_message(str(e))
+            # Log full error details with traceback
             import logging
-            import os
+            import traceback
+            import platform
             from src.utils.paths import get_app_dir
             
-            # Get log file location
-            log_file = os.path.join(get_app_dir(), "processing_log.txt")
-            logging.error(f"Worker error: {sanitized}")
+            # Get the actual log file location (same as setup_logging uses)
+            if platform.system() == 'Darwin':
+                home_dir = os.path.expanduser("~")
+                log_file = os.path.join(home_dir, "Library", "Logs", "OA-OrientationAutomator", "processing_log.txt")
+            else:
+                log_file = os.path.join(get_app_dir(), "processing_log.txt")
+            
+            # Get logger instance
+            logger = logging.getLogger(__name__)
+            
+            # Log full error with traceback
+            logger.error("Worker error occurred:", exc_info=True)
+            
+            # Also log sanitized message
+            sanitized = sanitize_log_message(str(e))
+            logger.error(f"Worker error (sanitized): {sanitized}")
+            
+            # Ensure log is flushed
+            for handler in logger.handlers:
+                handler.flush()
             
             error_msg = (
                 f"An unexpected error occurred.\n\n"

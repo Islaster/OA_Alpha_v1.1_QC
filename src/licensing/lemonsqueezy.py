@@ -5,8 +5,11 @@ import os
 import requests
 import hashlib
 import platform
+import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class LemonSqueezyClient:
@@ -120,10 +123,37 @@ class LemonSqueezyClient:
         
         try:
             # Use data= (form-encoded) not json= as per Lemon Squeezy spec
-            response = requests.post(url, data=payload, headers=headers)
+            response = requests.post(url, data=payload, headers=headers, timeout=10)
+            
+            # Log response details for debugging
+            if response.status_code != 200:
+                logger.warning(f"License activation returned status {response.status_code}")
+                try:
+                    error_data = response.json()
+                    logger.debug(f"Activation error response: {error_data}")
+                    # Extract error message from response if available
+                    error_msg = error_data.get("error", {}).get("message", str(response.status_code))
+                    if error_msg:
+                        return {
+                            "activated": False,
+                            "error": f"{response.status_code} Client Error: {error_msg}",
+                            "status_code": response.status_code,
+                            "response": error_data
+                        }
+                except ValueError:
+                    # Response is not JSON
+                    logger.debug(f"Activation error response (non-JSON): {response.text[:500]}")
+            
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.Timeout:
+            logger.error("License activation request timed out")
+            return {
+                "activated": False,
+                "error": "Request timed out. Please check your internet connection."
+            }
         except requests.exceptions.RequestException as e:
+            logger.error(f"License activation failed: {e}", exc_info=True)
             return {
                 "activated": False,
                 "error": str(e)

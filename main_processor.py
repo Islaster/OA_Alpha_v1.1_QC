@@ -78,7 +78,7 @@ class BoundingBoxProcessor:
         self.logger = logging.getLogger(__name__)
     
     def process_file(self, input_filepath, object_name=None, object_type="unknown",
-                    use_learning=True, save_rotation=True):
+                    use_learning=True, save_rotation=True, no_ground=False):
         """
         Process a 3D file to minimize its bounding box.
         
@@ -88,6 +88,7 @@ class BoundingBoxProcessor:
             object_type: Type/category for learning
             use_learning: Use learned rotations
             save_rotation: Save successful rotation
+            no_ground: Skip positioning object at ground zero
             
         Returns:
             dict: Processing results
@@ -122,9 +123,12 @@ class BoundingBoxProcessor:
         optimizer = RotationOptimizer(obj, rotation_config)
         best_rotation_deg, bbox_reduction = optimizer.optimize(learned_presets)
         
-        # Position at origin
-        print("Positioning object at origin...", flush=True)
-        position_at_ground_zero(obj)
+        # Position at origin (unless disabled)
+        if not no_ground:
+            print("Positioning object at origin...", flush=True)
+            position_at_ground_zero(obj)
+        else:
+            print("Skipping ground positioning.", flush=True)
         
         # Get final bounding box
         final_volume, final_dims = get_bounding_box_volume(obj)
@@ -209,6 +213,11 @@ def main():
         action="store_true",
         help="Enable debug mode with detailed logging"
     )
+    parser.add_argument(
+        "--no-ground",
+        action="store_true",
+        help="Skip positioning object at ground zero"
+    )
     
     # Parse arguments
     if BLENDER_AVAILABLE:
@@ -235,7 +244,8 @@ def main():
         object_name=Path(args.input).name,
         object_type=args.type,
         use_learning=not args.no_learning,
-        save_rotation=not args.no_save_learning
+        save_rotation=not args.no_save_learning,
+        no_ground=args.no_ground
     )
     
     if result is None:

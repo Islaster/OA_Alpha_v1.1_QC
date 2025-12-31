@@ -22,21 +22,75 @@ from src.security.error_handler import setup_global_error_handler
 
 def setup_logging():
     """Setup application-wide logging."""
-    log_dir = get_app_dir()
-    log_file = os.path.join(log_dir, "processing_log.txt")
+    import platform
+    
+    # For macOS, use user-accessible location (not inside .app bundle)
+    if platform.system() == 'Darwin':
+        # Use ~/Library/Logs/ for macOS (standard location)
+        home_dir = os.path.expanduser("~")
+        log_dir = os.path.join(home_dir, "Library", "Logs", "OA-OrientationAutomator")
+        log_file = os.path.join(log_dir, "processing_log.txt")
+    else:
+        # Windows/Linux: use app directory (next to executable)
+        log_dir = get_app_dir()
+        log_file = os.path.join(log_dir, "processing_log.txt")
     
     # Ensure log directory exists
-    os.makedirs(log_dir, exist_ok=True)
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except (OSError, PermissionError) as e:
+        # Fallback to current working directory if we can't create the log dir
+        log_file = os.path.join(os.getcwd(), "processing_log.txt")
+        log_dir = os.getcwd()
     
     # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file, encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
+    try:
+        # Get root logger and clear any existing handlers
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+        
+        # Set level to DEBUG to capture all errors
+        root_logger.setLevel(logging.DEBUG)
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # File handler (captures everything)
+        file_handler = logging.FileHandler(log_file, encoding='utf-8', mode='a')
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+        
+        # Console handler (INFO and above)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
+        
+        # Reduce urllib3 verbosity (only show WARNING and above)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+        
+    except (OSError, PermissionError) as e:
+        # If we can't write to the log file, at least log to console
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[logging.StreamHandler()]
+        )
+        # Try fallback location
+        fallback_log = os.path.join(os.getcwd(), "processing_log.txt")
+        try:
+            file_handler = logging.FileHandler(fallback_log, encoding='utf-8', mode='a')
+            file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            file_handler.setLevel(logging.DEBUG)
+            logging.getLogger().addHandler(file_handler)
+            log_file = fallback_log
+        except:
+            pass  # Can't write anywhere, console only
     
     # Setup global error handler with log file
     setup_global_error_handler(log_file)

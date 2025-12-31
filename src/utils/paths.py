@@ -33,17 +33,30 @@ def get_app_dir():
     
     if getattr(sys, 'frozen', False):
         # For compiled executables (Nuitka, PyInstaller, etc.)
-        # Nuitka with --onefile places data files next to the executable
-        return os.path.dirname(sys.executable)
+        exe_path = sys.executable
+        
+        # For macOS .app bundles, the executable is inside Contents/MacOS/
+        # We want to return the .app bundle directory or a user-accessible location
+        if sys.platform == 'darwin':
+            # Check if we're inside a .app bundle
+            app_bundle_path = exe_path
+            # Navigate up from Contents/MacOS/executable to .app bundle
+            if '/Contents/MacOS/' in app_bundle_path:
+                app_bundle_path = app_bundle_path.split('/Contents/MacOS/')[0]
+                # Return the .app bundle directory
+                return app_bundle_path
+            # If not in a bundle, return executable directory
+            return os.path.dirname(exe_path)
+        else:
+            # Windows/Linux: return directory containing executable
+            return os.path.dirname(exe_path)
     else:
-        # Get directory of the calling script
-        import inspect
-        frame = inspect.currentframe()
-        caller_frame = frame.f_back
-        caller_file = caller_frame.f_globals.get('__file__')
-        if caller_file:
-            return os.path.dirname(os.path.abspath(caller_file))
-        return os.getcwd()
+        # Development mode: return project root
+        # Get directory of this file (src/utils/paths.py)
+        current_file = os.path.abspath(__file__)
+        # Go up from src/utils/paths.py to project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
+        return project_root
 
 
 def find_data_file(filename):
