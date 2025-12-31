@@ -195,6 +195,7 @@ jobs:
             python -m nuitka \
               --standalone \
               --macos-create-app-bundle \
+              --macos-app-name="${{ matrix.binary_name }}" \
               --enable-plugin=pyside6 \
               --include-package=src \
               --include-package=dotenv \
@@ -285,8 +286,33 @@ jobs:
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
             echo "macOS bundle check:"
             ls -lah "$BINARY_PATH/Contents" || true
+            ls -lah "$BINARY_PATH/Contents/MacOS" || true
             ls -lah "$BINARY_PATH/Contents/Resources" || true
-            plutil -p "$BINARY_PATH/Contents/Info.plist" | grep -i -E "CFBundleIcon|Icon" || true
+            
+            # Check Info.plist
+            if [ -f "$BINARY_PATH/Contents/Info.plist" ]; then
+              echo "✓ Info.plist exists"
+              plutil -p "$BINARY_PATH/Contents/Info.plist" | grep -i -E "CFBundleExecutable|CFBundleIcon|CFBundleIdentifier" || true
+              
+              # Get executable name from Info.plist
+              EXECUTABLE_NAME=$(plutil -extract CFBundleExecutable raw "$BINARY_PATH/Contents/Info.plist" 2>/dev/null || echo "")
+              if [ -n "$EXECUTABLE_NAME" ]; then
+                EXECUTABLE_PATH="$BINARY_PATH/Contents/MacOS/$EXECUTABLE_NAME"
+                if [ -f "$EXECUTABLE_PATH" ]; then
+                  echo "✓ Executable found: $EXECUTABLE_PATH"
+                  chmod +x "$EXECUTABLE_PATH"
+                  echo "✓ Executable permissions set"
+                else
+                  echo "❌ ERROR: Executable not found at $EXECUTABLE_PATH"
+                  echo "Contents of MacOS directory:"
+                  ls -lah "$BINARY_PATH/Contents/MacOS/" || true
+                fi
+              else
+                echo "⚠️  Could not read CFBundleExecutable from Info.plist"
+              fi
+            else
+              echo "❌ ERROR: Info.plist not found!"
+            fi
           fi
         shell: bash
 
