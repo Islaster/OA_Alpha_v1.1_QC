@@ -9,24 +9,85 @@ import os
 from pathlib import Path
 
 # Add script directory to path
-script_dir = Path(__file__).parent.absolute()
+# Use resolve() to handle symlinks (important for macOS AppTranslocation)
+script_dir = Path(__file__).resolve().parent
 if str(script_dir) not in sys.path:
     sys.path.insert(0, str(script_dir))
 
 # Add src directory to path (for compiled apps, build process copies src to Contents/Resources/src)
 # Check standard locations where the build process places src
+# Use resolve() for all paths to handle symlinks
 possible_src_paths = [
-    script_dir.parent / "Resources" / "src",  # Contents/Resources/src (macOS app bundle - where build process copies it)
-    script_dir / "src",  # Same directory as script (Windows/Linux - where build process copies it)
+    (script_dir.parent / "Resources" / "src").resolve(),  # Contents/Resources/src (macOS app bundle)
+    (script_dir / "src").resolve(),  # Same directory as script (Windows/Linux)
+    (script_dir.parent.parent / "Resources" / "src").resolve(),  # App bundle root/Resources/src
     Path.cwd() / "src",  # Current working directory (development)
+    (script_dir.parent / "src").resolve(),  # Contents/src (alternative)
 ]
 
+# Remove duplicates while preserving order
+seen = set()
+unique_paths = []
+for p in possible_src_paths:
+    p_str = str(p)
+    if p_str not in seen:
+        seen.add(p_str)
+        unique_paths.append(p)
+possible_src_paths = unique_paths
+
+# Debug: print where we're looking (always print if src not found, or if BLENDER_DEBUG is set)
+debug_enabled = os.getenv("BLENDER_DEBUG") is not None
+
+src_found = False
 for src_path in possible_src_paths:
-    if src_path.exists() and str(src_path) not in sys.path:
-        sys.path.insert(0, str(src_path))
-        if os.getenv("BLENDER_DEBUG"):
-            print(f"DEBUG: Found src at: {src_path}", file=sys.stderr)
-        break
+    # Check if path exists and is a directory
+    if src_path.exists() and src_path.is_dir():
+        src_path_str = str(src_path)
+        if src_path_str not in sys.path:
+            sys.path.insert(0, src_path_str)
+            src_found = True
+            if os.getenv("BLENDER_DEBUG"):
+                print(f"DEBUG: Using src from: {src_path}", file=sys.stderr)
+            break
+
+if not src_found:
+    # Always print debug info when src is not found
+    print(f"ERROR: Could not find 'src' directory. Searched:", file=sys.stderr)
+    print(f"Script file: {__file__}", file=sys.stderr)
+    print(f"Script directory (resolved): {script_dir}", file=sys.stderr)
+    print(f"Script parent: {script_dir.parent}", file=sys.stderr)
+    print(f"", file=sys.stderr)
+    print(f"Searched paths:", file=sys.stderr)
+    for p in possible_src_paths:
+        exists = p.exists()
+        is_dir = p.is_dir() if exists else False
+        print(f"  - {p}", file=sys.stderr)
+        print(f"    exists={exists}, is_dir={is_dir}", file=sys.stderr)
+    print(f"", file=sys.stderr)
+    print(f"Contents of {script_dir.parent}:", file=sys.stderr)
+    try:
+        if script_dir.parent.exists():
+            for item in sorted(script_dir.parent.iterdir()):
+                item_type = "DIR" if item.is_dir() else "FILE"
+                print(f"  - {item.name} ({item_type})", file=sys.stderr)
+        else:
+            print(f"  (Directory does not exist)", file=sys.stderr)
+    except Exception as e:
+        print(f"  (Could not list: {e})", file=sys.stderr)
+    
+    # Check if Resources directory exists
+    resources_dir = script_dir.parent / "Resources"
+    print(f"", file=sys.stderr)
+    print(f"Resources directory: {resources_dir}", file=sys.stderr)
+    print(f"  exists={resources_dir.exists()}, is_dir={resources_dir.is_dir() if resources_dir.exists() else False}", file=sys.stderr)
+    if resources_dir.exists():
+        print(f"  Contents:", file=sys.stderr)
+        try:
+            for item in sorted(resources_dir.iterdir()):
+                item_type = "DIR" if item.is_dir() else "FILE"
+                print(f"    - {item.name} ({item_type})", file=sys.stderr)
+        except Exception as e:
+            print(f"    (Could not list: {e})", file=sys.stderr)
 
 try:
     import main_processor
@@ -119,7 +180,7 @@ except ImportError as e:
         # Get initial bounding box
         initial_volume, initial_dims = get_bounding_box_volume(obj)
         print(f"Initial bounding box: {initial_dims} (volume: {initial_volume:.6f})", flush=True)
-        
+            
         # Get learned presets
         learned_presets = []
         if not args.no_learning and config.get("learning", {}).get("enable_learning", True):
@@ -146,7 +207,7 @@ except ImportError as e:
         # Save to learning system
         if not args.no_learning and bbox_reduction > 0:
             learner.save_rotation(object_name, args.type, best_rotation_deg, bbox_reduction)
-        
+                    
         # Save output
         output_dir = input_path.parent
         base_name = input_path.stem
@@ -157,6 +218,6 @@ except ImportError as e:
         
         print("Done!", flush=True)
         return 0
-    
+
     if __name__ == "__main__":
         sys.exit(main())
