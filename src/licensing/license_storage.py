@@ -4,8 +4,12 @@ Stores license key and instance_id securely.
 """
 import os
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 class LicenseStorage:
@@ -80,7 +84,7 @@ class LicenseStorage:
             
             return True
         except Exception as e:
-            print(f"Error saving license: {e}")
+            logger.error(f"Error saving license: {e}", exc_info=True)
             return False
     
     def load_license(self) -> Optional[Dict[str, Any]]:
@@ -97,7 +101,7 @@ class LicenseStorage:
             with open(self.license_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error loading license: {e}")
+            logger.error(f"Error loading license: {e}", exc_info=True)
             return None
     
     def clear_license(self) -> bool:
@@ -112,7 +116,7 @@ class LicenseStorage:
                 self.license_file.unlink()
             return True
         except Exception as e:
-            print(f"Error clearing license: {e}")
+            logger.error(f"Error clearing license: {e}", exc_info=True)
             return False
     
     def is_activated(self) -> bool:

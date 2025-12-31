@@ -4,8 +4,17 @@ Background worker threads for GUI.
 import os
 import subprocess
 import threading
+import logging
+import platform
 from pathlib import Path
 from PySide6.QtCore import Signal, QObject
+
+from src.security.validators import validate_command_args, ValidationError
+from src.security.error_handler import sanitize_log_message
+from src.utils.paths import get_app_dir
+
+
+logger = logging.getLogger(__name__)
 
 
 class WorkerSignals(QObject):
@@ -37,12 +46,10 @@ class ProcessWorker(threading.Thread):
     
     def run(self):
         """Run the processing task (SECURE VERSION)."""
-        from src.security.validators import validate_file_path, validate_command_args, ValidationError
-        from src.security.error_handler import sanitize_log_message
+        from src.security.validators import validate_file_path
+        from src.utils.paths import find_data_file
         
         try:
-            # Find the script file (handles Nuitka data file placement)
-            from src.utils.paths import find_data_file
             
             script_path = find_data_file("bounding_box_minimizer.py")
             
@@ -164,20 +171,12 @@ class ProcessWorker(threading.Thread):
             self.signals.finished.emit(False, f"Validation error: {ve}")
         except Exception as e:
             # Log full error details with traceback
-            import logging
-            import traceback
-            import platform
-            from src.utils.paths import get_app_dir
-            
             # Get the actual log file location (same as setup_logging uses)
             if platform.system() == 'Darwin':
                 home_dir = os.path.expanduser("~")
                 log_file = os.path.join(home_dir, "Library", "Logs", "OA-OrientationAutomator", "processing_log.txt")
             else:
                 log_file = os.path.join(get_app_dir(), "processing_log.txt")
-            
-            # Get logger instance
-            logger = logging.getLogger(__name__)
             
             # Log full error with traceback
             logger.error("Worker error occurred:", exc_info=True)

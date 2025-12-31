@@ -101,9 +101,9 @@ def _load_obj(filepath):
         try:
             # Blender 3.x and earlier
             bpy.ops.import_scene.obj(filepath=filepath)
-        except:
+        except Exception as e:
             # Manual OBJ loading as fallback
-            logger.warning("Using manual OBJ import method")
+            logger.warning(f"Standard OBJ import failed, using manual method: {e}")
             _manual_obj_import(filepath)
     
     return _get_first_object()
@@ -142,18 +142,20 @@ def _load_ply(filepath):
     try:
         # Blender 4.0+ PLY import
         bpy.ops.wm.ply_import(filepath=filepath)
-    except:
+    except (AttributeError, RuntimeError) as e:
+        logger.debug(f"Blender 4.0+ PLY import failed: {e}, trying Blender 3.x method")
         try:
             # Blender 3.x built-in PLY import
             bpy.ops.import_mesh.ply(filepath=filepath)
-        except:
+        except Exception as e2:
+            logger.debug(f"Blender 3.x PLY import failed: {e2}, trying with addon")
             # Enable PLY addon if available and try again
             try:
                 import addon_utils
                 addon_utils.enable("io_mesh_ply", default_set=True, persistent=True)
                 bpy.ops.import_mesh.ply(filepath=filepath)
-            except:
-                logger.error("PLY import failed. Please ensure PLY import addon is enabled.")
+            except Exception as e3:
+                logger.error(f"PLY import failed after all fallback methods: {e3}. Please ensure PLY import addon is enabled.")
                 raise
     
     return _get_first_object()

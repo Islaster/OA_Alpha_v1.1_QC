@@ -216,8 +216,9 @@ class MainWindow(QMainWindow):
                     start_dir = downloads
                 else:
                     start_dir = os.path.expanduser("~")
-            except Exception:
+            except Exception as e:
                 # Fallback to current directory if home expansion fails
+                logger.debug(f"Failed to get Downloads directory, using current directory: {e}")
                 start_dir = os.getcwd()
             
             logger.debug(f"Opening file dialog with start_dir: {start_dir}")

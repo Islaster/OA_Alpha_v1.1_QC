@@ -87,8 +87,9 @@ def _export_obj(filepath, use_selection):
             apply_modifiers=True,
             export_triangulated_mesh=False
         )
-    except:
+    except (AttributeError, RuntimeError) as e:
         # Blender 3.x OBJ export
+        logger.debug(f"Blender 4.0+ OBJ export failed: {e}, trying Blender 3.x method")
         bpy.ops.export_scene.obj(
             filepath=filepath,
             use_selection=use_selection,
@@ -117,15 +118,21 @@ def _export_ply(filepath, use_selection):
             export_selected_objects=use_selection,
             global_scale=1.0
         )
-    except:
+    except (AttributeError, RuntimeError) as e:
+        logger.debug(f"Blender 4.0+ PLY export failed: {e}, trying Blender 3.x method")
         try:
             # Blender 3.x PLY export
             bpy.ops.export_mesh.ply(filepath=filepath)
-        except:
+        except Exception as e2:
+            logger.debug(f"Blender 3.x PLY export failed: {e2}, enabling addon and retrying")
             # Enable addon and retry
-            import addon_utils
-            addon_utils.enable("io_mesh_ply", default_set=True, persistent=True)
-            bpy.ops.export_mesh.ply(filepath=filepath)
+            try:
+                import addon_utils
+                addon_utils.enable("io_mesh_ply", default_set=True, persistent=True)
+                bpy.ops.export_mesh.ply(filepath=filepath)
+            except Exception as e3:
+                logger.error(f"PLY export failed after all fallback methods: {e3}")
+                raise
 
 
 def _export_gltf(filepath, use_selection):

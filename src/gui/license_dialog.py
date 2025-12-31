@@ -75,7 +75,9 @@ class LicenseDialog(QDialog):
                         title_layout.addSpacing(8)  # Small spacing between icon and text
                         icon_loaded = True
                         break
-                except Exception:
+                except Exception as e:
+                    # Silently continue to next path if icon loading fails
+                    # This is expected behavior - we have multiple fallback paths
                     continue
         
         # Fallback to emoji if icon not found

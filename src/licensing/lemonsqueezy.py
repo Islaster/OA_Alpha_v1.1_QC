@@ -208,6 +208,7 @@ class LemonSqueezyClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
+            logger.error(f"License deactivation failed: {e}", exc_info=True)
             return {
                 "deactivated": False,
                 "error": str(e)
@@ -230,7 +231,8 @@ class LemonSqueezyClient:
             response.raise_for_status()
             data = response.json()
             return data.get("data", {}).get("attributes", {}).get("urls", {}).get("customer_portal")
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            logger.debug(f"Failed to get customer portal URL: {e}")
             return None
 
 

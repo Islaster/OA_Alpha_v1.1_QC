@@ -356,6 +356,12 @@ jobs:
             else
               echo "❌ ERROR: Info.plist not found!"
             fi
+            
+            # Remove quarantine attribute (macOS will re-add it on download, but this helps for testing)
+            echo "Removing quarantine attribute from app bundle..."
+            xattr -d com.apple.quarantine "$BINARY_PATH" 2>/dev/null || echo "No quarantine attribute found (this is OK)"
+            xattr -cr "$BINARY_PATH" 2>/dev/null || true
+            echo "✓ Quarantine attributes cleared"
           fi
         shell: bash
 
@@ -392,6 +398,26 @@ jobs:
           NOTES:
           - macOS ships as a .app bundle (for proper app icon + Finder/Dock behavior)
           - Windows/Linux ship as single-file binaries
+
+          macOS GATEKEEPER (If you see "damaged and can't be opened"):
+          =============================================================
+          macOS may block the app because it's not code signed. To fix:
+
+          Option 1 (Recommended):
+          - Right-click the .app file
+          - Select "Open" from the context menu
+          - Click "Open" in the security dialog
+          - The app will now open normally
+
+          Option 2 (Terminal):
+          - Open Terminal
+          - Run: xattr -d com.apple.quarantine "/path/to/OA-OrientationAutomator.app"
+          - Or drag the app into Terminal to auto-fill the path
+
+          Option 3 (System Settings):
+          - Go to System Settings > Privacy & Security
+          - Scroll down to find the blocked app
+          - Click "Open Anyway"
           EOF
 
           # Create archives
