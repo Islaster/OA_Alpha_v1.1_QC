@@ -10,7 +10,6 @@ from pathlib import Path
 from PySide6.QtCore import Signal, QObject
 
 from src.security.validators import validate_command_args, ValidationError
-from src.security.error_handler import sanitize_log_message
 from src.utils.paths import get_app_dir
 
 
@@ -149,8 +148,8 @@ class ProcessWorker(threading.Thread):
                 for handler in logger.handlers:
                     handler.flush()
                 
-                # Sanitize error message before showing to user
-                sanitized_error = sanitize_log_message(error_output[:500])
+                # Truncate error message for display
+                sanitized_error = error_output[:500].replace('\n', ' ').replace('\r', ' ')
                 
                 # Get log file location for user message
                 if platform.system() == 'Darwin':
@@ -180,10 +179,6 @@ class ProcessWorker(threading.Thread):
             
             # Log full error with traceback
             logger.error("Worker error occurred:", exc_info=True)
-            
-            # Also log sanitized message
-            sanitized = sanitize_log_message(str(e))
-            logger.error(f"Worker error (sanitized): {sanitized}")
             
             # Ensure log is flushed
             for handler in logger.handlers:

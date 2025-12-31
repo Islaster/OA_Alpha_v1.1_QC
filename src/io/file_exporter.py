@@ -1,22 +1,25 @@
 """
 3D file export with multiple format support.
-SECURITY: Output validation and sanitization applied.
 """
 import logging
 from pathlib import Path
+from typing import Optional
 import bpy
 
 from src.security.validators import validate_file_path, ALLOWED_3D_FORMATS, ValidationError
-from src.security.error_handler import secure_function, SecureError
 
 
 logger = logging.getLogger(__name__)
 
 
-@secure_function(error_code='file_write_error', user_message="Unable to export file")
-def export_object(obj, output_path, format=None, use_selection=True):
+def export_object(
+    obj: bpy.types.Object,
+    output_path: str | Path,
+    format: Optional[str] = None,
+    use_selection: bool = True
+) -> None:
     """
-    Export object to file (SECURE VERSION).
+    Export object to file.
     
     Args:
         obj: Blender object to export
@@ -25,9 +28,10 @@ def export_object(obj, output_path, format=None, use_selection=True):
         use_selection: Export only selected objects
     
     Raises:
-        SecureError: If validation fails or export fails
+        ValidationError: If output path is invalid
+        RuntimeError: If export fails
     """
-    # SECURITY: Validate output path
+    # Validate output path
     try:
         validated_path = validate_file_path(
             output_path,
@@ -37,11 +41,8 @@ def export_object(obj, output_path, format=None, use_selection=True):
         )
         output_path = str(validated_path)
     except ValidationError as e:
-        raise SecureError(
-            "Invalid output path",
-            f"Path validation failed: {e}",
-            'invalid_input'
-        )
+        logger.error(f"Invalid output path: {e}")
+        raise
     ext = Path(output_path).suffix.lower() if format is None else f".{format}"
     
     # Ensure object is selected

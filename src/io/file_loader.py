@@ -1,24 +1,22 @@
 """
 3D file loading with multiple format support and fallback methods.
-SECURITY: Input validation and sanitization applied.
 """
 import os
 import time
 import logging
 from pathlib import Path
+from typing import Optional
 import bpy
 
 from src.security.validators import validate_3d_file_path, ValidationError
-from src.security.error_handler import secure_function, SecureError
 
 
 logger = logging.getLogger(__name__)
 
 
-@secure_function(error_code='file_read_error', user_message="Unable to load 3D file")
-def load_object(filepath):
+def load_object(filepath: str | Path) -> Optional[bpy.types.Object]:
     """
-    Load a 3D object from file (SECURE VERSION).
+    Load a 3D object from file.
     
     Supports: .obj, .fbx, .ply, .blend, .gltf, .glb
     
@@ -26,21 +24,19 @@ def load_object(filepath):
         filepath: Path to object file
         
     Returns:
-        Blender object or None
+        Blender object or None if loading fails
         
     Raises:
-        SecureError: If validation fails or file cannot be loaded
+        ValidationError: If file path is invalid
+        FileNotFoundError: If file doesn't exist
     """
-    # SECURITY: Validate file path
+    # Validate file path
     try:
         validated_path = validate_3d_file_path(filepath, must_exist=True)
         filepath = str(validated_path)
     except ValidationError as e:
-        raise SecureError(
-            "Invalid file path provided",
-            f"File validation failed: {e}",
-            'invalid_input'
-        )
+        logger.error(f"Invalid file path: {e}")
+        raise
     ext = os.path.splitext(filepath)[1].lower()
     
     print(f"Loading {ext.upper()} file...", flush=True)
