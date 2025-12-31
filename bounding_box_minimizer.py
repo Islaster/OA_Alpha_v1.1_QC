@@ -39,16 +39,30 @@ possible_src_paths = unique_paths
 debug_enabled = os.getenv("BLENDER_DEBUG") is not None
 
 src_found = False
+src_path_used = None
 for src_path in possible_src_paths:
     # Check if path exists and is a directory
-    if src_path.exists() and src_path.is_dir():
-        src_path_str = str(src_path)
-        if src_path_str not in sys.path:
-            sys.path.insert(0, src_path_str)
-            src_found = True
-            if os.getenv("BLENDER_DEBUG"):
-                print(f"DEBUG: Using src from: {src_path}", file=sys.stderr)
-            break
+    try:
+        resolved_path = src_path.resolve() if hasattr(src_path, 'resolve') else src_path
+        if resolved_path.exists() and resolved_path.is_dir():
+            # Verify it actually contains Python modules (has __init__.py or subdirectories)
+            has_init = (resolved_path / "__init__.py").exists()
+            has_subdirs = any(item.is_dir() for item in resolved_path.iterdir() if item.name != "__pycache__")
+            
+            if has_init or has_subdirs:
+                src_path_str = str(resolved_path)
+                if src_path_str not in sys.path:
+                    sys.path.insert(0, src_path_str)
+                    src_found = True
+                    src_path_used = resolved_path
+                    # Always print when src is found (helps with debugging)
+                    print(f"✓ Found src directory at: {resolved_path}", file=sys.stderr)
+                    break
+    except Exception as e:
+        # Skip paths that cause errors (permissions, etc.)
+        if os.getenv("BLENDER_DEBUG"):
+            print(f"DEBUG: Error checking {src_path}: {e}", file=sys.stderr)
+        continue
 
 if not src_found:
     # Always print debug info when src is not found
@@ -89,12 +103,17 @@ if not src_found:
         except Exception as e:
             print(f"    (Could not list: {e})", file=sys.stderr)
 
+# Try to import main_processor (requires src to be in path)
 try:
     import main_processor
     # main_processor already handles Blender execution and argument parsing
     if __name__ == "__main__":
         sys.exit(main_processor.main())
 except ImportError as e:
+    # If import fails and we haven't found src, show the error
+    if not src_found:
+        # The error message below will show what we searched
+        pass
     # Fallback: inline implementation (shouldn't normally happen if build process worked correctly)
     import argparse
     
