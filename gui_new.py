@@ -155,11 +155,15 @@ def initialize_app(splash, app):
             
             return (True, None, main_window)
         else:
-            # Clear invalid license
+            # License validation failed - clear it and show dialog with error
             storage.clear_license()
             splash.set_progress(60, "License validation failed...")
             app.processEvents()
             time.sleep(0.1)
+            
+            # Create license dialog with error message and old key prefilled
+            license_dialog = LicenseDialog(error_message=message, prefill_key=license_key)
+            return (False, license_dialog, None)
     
     # Step 3: Prepare license dialog if needed
     if not has_existing_license:

@@ -132,17 +132,32 @@ class LemonSqueezyClient:
                     error_data = response.json()
                     logger.debug(f"Activation error response: {error_data}")
                     # Extract error message from response if available
-                    error_msg = error_data.get("error", {}).get("message", str(response.status_code))
-                    if error_msg:
-                        return {
-                            "activated": False,
-                            "error": f"{response.status_code} Client Error: {error_msg}",
-                            "status_code": response.status_code,
-                            "response": error_data
-                        }
+                    # Handle both string and dict error formats
+                    error_value = error_data.get("error")
+                    if isinstance(error_value, str):
+                        # Error is a string (e.g., "This license key has reached the activation limit.")
+                        error_msg = error_value
+                    elif isinstance(error_value, dict):
+                        # Error is a dict with a message key
+                        error_msg = error_value.get("message", str(response.status_code))
+                    else:
+                        # Fallback
+                        error_msg = str(response.status_code)
+                    
+                    return {
+                        "activated": False,
+                        "error": f"{response.status_code} Client Error: {error_msg}",
+                        "status_code": response.status_code,
+                        "response": error_data
+                    }
                 except ValueError:
                     # Response is not JSON
                     logger.debug(f"Activation error response (non-JSON): {response.text[:500]}")
+                    return {
+                        "activated": False,
+                        "error": f"{response.status_code} Client Error: {response.text[:200]}",
+                        "status_code": response.status_code
+                    }
             
             response.raise_for_status()
             return response.json()

@@ -18,11 +18,21 @@ class LicenseDialog(QDialog):
     Shows on first run or when no valid license is found.
     """
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, error_message=None, prefill_key=None):
+        """
+        Initialize license dialog.
+        
+        Args:
+            parent: Parent widget
+            error_message: Optional error message to display
+            prefill_key: Optional license key to prefill in the input field
+        """
         super().__init__(parent)
         self.storage = LicenseStorage()
         self.validator = LicenseValidator()
         self.is_licensed = False
+        self.error_message = error_message
+        self.prefill_key = prefill_key
         
         self.setWindowTitle("OA - License Activation")
         self.setModal(True)
@@ -171,7 +181,28 @@ class LicenseDialog(QDialog):
         Note: This should only be called if gui_new.py didn't find a valid license.
         This is a fallback check for edge cases.
         """
-        if self.storage.is_activated():
+        # If error message provided, show it
+        if self.error_message:
+            self.status_label.setText(f"❌ License Validation Failed: {self.error_message}")
+            self.status_label.setStyleSheet("""
+                background-color: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+                padding: 10px;
+                border-radius: 5px;
+                font-weight: bold;
+            """)
+            # Prefill the old key if provided, or clear it
+            if self.prefill_key:
+                self.key_input.setText(self.prefill_key)
+                # Select the text so user can easily replace it
+                self.key_input.selectAll()
+            else:
+                self.key_input.clear()
+            self.key_input.setEnabled(True)
+            self.key_input.setFocus()
+            self.activate_button.setEnabled(True)
+        elif self.storage.is_activated():
             license_key = self.storage.get_license_key()
             
             # Quick validation
@@ -185,11 +216,19 @@ class LicenseDialog(QDialog):
             else:
                 self.show_unlicensed_status()
                 self.storage.clear_license()  # Clear invalid license
+                # Prefill the old key so user can try a new one
+                if license_key:
+                    self.key_input.setText(license_key)
+                    self.key_input.selectAll()
         else:
             # No existing license - ensure input is ready
             self.key_input.setEnabled(True)
             self.key_input.setFocus()
             self.activate_button.setEnabled(True)
+            # Prefill key if provided
+            if self.prefill_key:
+                self.key_input.setText(self.prefill_key)
+                self.key_input.selectAll()
     
     def show_licensed_status(self):
         """Show licensed status."""
