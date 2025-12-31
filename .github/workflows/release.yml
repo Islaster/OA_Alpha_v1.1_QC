@@ -221,7 +221,7 @@ jobs:
               --include-package=src \
               --include-package=dotenv \
               --include-package=platformdirs \
-              --include-data-dir=src=src \
+              --include-data-files="src/**/*.py=src/" \
               --include-data-files=config.json=config.json \
               --include-data-files=env.example=env.example \
               --include-data-files=bounding_box_minimizer.py=bounding_box_minimizer.py \
