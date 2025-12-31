@@ -15,6 +15,30 @@ from src.utils.paths import get_app_dir
 
 logger = logging.getLogger(__name__)
 
+def _blender_env():
+    """
+    Return a sanitized environment for launching Blender.
+
+    Nuitka standalone apps can leak Python runtime env vars that corrupt
+    Blender's embedded Python (e.g., causing _struct / ABI errors).
+    """
+    env = os.environ.copy()
+
+    # Remove env vars that can hijack Blender's embedded Python
+    for k in (
+        "PYTHONHOME", "PYTHONPATH", "PYTHONUSERBASE",
+        "PYTHONNOUSERSITE",
+        "VIRTUAL_ENV",
+        "CONDA_PREFIX", "CONDA_DEFAULT_ENV", "CONDA_SHLVL",
+        "PYENV_ROOT", "PYENV_VERSION",
+    ):
+        env.pop(k, None)
+
+    # Hardening: prevent user-site packages from leaking in
+    env["PYTHONNOUSERSITE"] = "1"
+
+    return env
+
 
 class WorkerSignals(QObject):
     """Signals for worker thread communication."""
@@ -119,8 +143,9 @@ class ProcessWorker(threading.Thread):
                 text=True,
                 encoding='utf-8',
                 errors='replace',
-                cwd=str(self.script_dir),
-                timeout=600  # 10 minute timeout
+                cwd=str(Path(script_path).parent),
+                timeout=600,  # 10 minute timeout
+                env=_blender_env(),
             )
             
             if result.returncode == 0:
