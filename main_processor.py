@@ -292,11 +292,14 @@ class BoundingBoxProcessor:
         best_rotation_deg, bbox_reduction = optimizer.optimize(learned_presets)
 
         # Optional ground positioning (on optimized only)
-        if not no_ground:
-            print("Positioning object at origin...", flush=True)
-            position_at_ground_zero(optimized_obj)
-        else:
-            print("Skipping ground positioning.", flush=True)
+        # Always place the optimized object nicely for viewing in Blender:
+        # center on X/Y and sit on Z=0 (matches OG blend behavior).
+        position_at_ground_zero(optimized_obj)
+        
+        # If you still want --no-ground to skip some *extra* ground variants,
+        # keep that logic separate from the basic placement above.
+        if no_ground:
+            print("NOTE: --no-ground enabled (skipping extra ground variants), but still centering/grounding for .blend view.", flush=True)
 
         # Final bbox (optimized)
         final_volume, final_dims = get_bounding_box_volume(optimized_obj)
